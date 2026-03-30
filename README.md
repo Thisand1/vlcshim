@@ -2,7 +2,8 @@
 
 This project mirrors VLC playback state into Windows SMTC using VLC's Lua HTTP interface.
 
-Please read [README_BEFORE_CODE_OF_CONDUCT.md](./README_BEFORE_CODE_OF_CONDUCT) before opening issues or contributing.
+Please read [README_BEFORE_CODE_OF_CONDUCT.md](./README_BEFORE_CODE_OF_CONDUCT.md) before opening issues or contributing.
+Please also read [CONTRIBUTING.md](./CONTRIBUTING.md) if you want to send issues or pull requests.
 
 ## Setup VLC
 
