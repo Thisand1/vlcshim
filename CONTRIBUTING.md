@@ -45,7 +45,8 @@ These are likely to be rejected unless there is a strong reason:
 2. Enable VLC `Web` in `Tools > Preferences > All > Main Interface > Main interfaces`.
 3. Set a Lua HTTP password in `Main Interface > Lua`.
 4. Restart VLC.
-5. Build the shim with `dotnet build` or run `dnet-cbr.bat`.
+5. Install the `.NET 8 SDK` if you are building from source.
+6. Build the shim with `dotnet build` or run `dnet-cbr.bat`.
 
 Useful runtime options:
 

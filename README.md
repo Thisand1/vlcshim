@@ -5,6 +5,12 @@ This project mirrors VLC playback state into Windows SMTC using VLC's Lua HTTP i
 Please read [README_BEFORE_CODE_OF_CONDUCT.md](./README_BEFORE_CODE_OF_CONDUCT.md) before opening issues or contributing.
 Please also read [CONTRIBUTING.md](./CONTRIBUTING.md) if you want to send issues or pull requests.
 
+## Requirements
+
+- Windows 11 or a recent Windows 10/11 build with SMTC support
+- VLC with the Lua HTTP interface enabled
+- `.NET 8 Desktop Runtime` installed if you use the framework-dependent build
+
 ## Setup VLC
 
 1. Open VLC.
@@ -19,11 +25,12 @@ Please also read [CONTRIBUTING.md](./CONTRIBUTING.md) if you want to send issues
 ## Run the shim
 
 1. Build and launch with `dnet-cbr.bat`.
-2. If you changed the VLC Lua HTTP password from the default `ineedair`, run the shim with `--password your_password_here`.
-3. If VLC is using a different web port, run with `--port your_port_here` or `--ports 8080,your_port_here`.
-4. You can also set `VLC_HTTP_PASSWORD` instead of passing `--password`.
-5. The shim will keep retrying until VLC's HTTP interface responds.
-6. Use the tray icon menu to open `Config...` if you want to change the shown player identity or toggle the startup warning toast.
+2. If you are running a packaged framework-dependent release, install the `.NET 8 Desktop Runtime` first.
+3. If you changed the VLC Lua HTTP password from the default `ineedair`, run the shim with `--password your_password_here`.
+4. If VLC is using a different web port, run with `--port your_port_here` or `--ports 8080,your_port_here`.
+5. You can also set `VLC_HTTP_PASSWORD` instead of passing `--password`.
+6. The shim will keep retrying until VLC's HTTP interface responds.
+7. Use the tray icon menu to open `Config...` if you want to change the shown player identity or toggle the startup warning toast.
 
 ## Troubleshooting
 
@@ -36,6 +43,9 @@ Please also read [CONTRIBUTING.md](./CONTRIBUTING.md) if you want to send issues
 
 - "What version has this been tested on?"
   Windows build `26100` and `26200.8079`.
+
+- "Do I need .NET installed?"
+  Yes, for the current framework-dependent build you need the `.NET 8 Desktop Runtime` installed. If a future release is published as self-contained, that requirement may not apply to that specific package.
 
 - "What does this do?"
   It mirrors VLC playback state into Windows SMTC and forwards SMTC button presses back to VLC.
