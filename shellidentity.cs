@@ -2,35 +2,45 @@ using System.Runtime.InteropServices;
 
 namespace VlcShimDebugFr;
 
+internal sealed record ShellIdentityResult(string DisplayName, string AppUserModelId, bool Applied, bool MatchedInstalledApp);
+
 internal static class ShellIdentity
 {
     private const string AppsFolderPath = "shell:::{4234d49b-0245-4df3-b780-3893943456e1}";
-    private const string FallbackVlcAppId = "VideoLAN.VLC";
-    private const string VlcDisplayName = "VLC media player";
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern int SetCurrentProcessExplicitAppUserModelID(string appId);
 
-    public static void ApplyVlcIdentity()
+    public static ShellIdentityResult ApplyConfiguredIdentity(ShimConfig config)
     {
         var appId = Environment.GetEnvironmentVariable("VLC_SMTC_APPID");
+        string displayName = PlayerIdentityProfiles.GetDisplayName(config);
+        bool matchedInstalledApp = false;
 
         if (string.IsNullOrWhiteSpace(appId))
         {
-            appId = TryResolveInstalledVlcAppId() ?? FallbackVlcAppId;
+            appId = TryResolveInstalledAppId(displayName);
+            matchedInstalledApp = !string.IsNullOrWhiteSpace(appId);
+        }
+
+        if (string.IsNullOrWhiteSpace(appId))
+        {
+            appId = PlayerIdentityProfiles.GetFallbackAppUserModelId(config);
         }
 
         try
         {
             Marshal.ThrowExceptionForHR(SetCurrentProcessExplicitAppUserModelID(appId));
+            return new ShellIdentityResult(displayName, appId, true, matchedInstalledApp);
         }
         catch
         {
             // Best effort only. The bridge can still function if shell identity setup fails.
+            return new ShellIdentityResult(displayName, appId, false, matchedInstalledApp);
         }
     }
 
-    private static string? TryResolveInstalledVlcAppId()
+    private static string? TryResolveInstalledAppId(string displayName)
     {
         object? shell = null;
         object? appsFolder = null;
@@ -72,7 +82,7 @@ internal static class ShellIdentity
             foreach (dynamic item in enumerable)
             {
                 string? name = item?.Name as string;
-                if (!string.Equals(name, VlcDisplayName, StringComparison.OrdinalIgnoreCase))
+                if (!IsMatchingDisplayName(name, displayName))
                 {
                     continue;
                 }
@@ -95,6 +105,18 @@ internal static class ShellIdentity
         }
 
         return null;
+    }
+
+    private static bool IsMatchingDisplayName(string? candidate, string expected)
+    {
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            return false;
+        }
+
+        return string.Equals(candidate, expected, StringComparison.OrdinalIgnoreCase) ||
+               candidate.Contains(expected, StringComparison.OrdinalIgnoreCase) ||
+               expected.Contains(candidate, StringComparison.OrdinalIgnoreCase);
     }
 
     private static void ReleaseComObject(object? instance)
