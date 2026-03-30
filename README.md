@@ -23,6 +23,7 @@ Please also read [CONTRIBUTING.md](./CONTRIBUTING.md) if you want to send issues
 3. If VLC is using a different web port, run with `--port your_port_here` or `--ports 8080,your_port_here`.
 4. You can also set `VLC_HTTP_PASSWORD` instead of passing `--password`.
 5. The shim will keep retrying until VLC's HTTP interface responds.
+6. Use the tray icon menu to open `Config...` if you want to change the shown player identity or toggle the startup warning toast.
 
 ## Troubleshooting
 
