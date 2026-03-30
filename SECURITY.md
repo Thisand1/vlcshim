@@ -6,7 +6,7 @@ This project is small and moves quickly. Security fixes are only guaranteed for 
 
 | Version | Supported |
 | ------- | --------- |
-| `main` / unreleased development branch | Yes |
+| `main` / pre-release development branch / unreleased development branch | Yes |
 | Latest tagged release | Yes |
 | Older releases | No |
 | Random source snapshots / forks | No |
