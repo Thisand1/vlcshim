@@ -1,27 +1,45 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Windows.Media;
-using VlcShimDebugFr;
 
-namespace VlcShimDebugFr
+namespace VlcShimDebugFr;
+
+internal sealed class StatusShim
 {
-    internal class StatusShim
+    public required string State { get; init; }
+
+    public required string Title { get; init; }
+
+    public string? Artist { get; init; }
+
+    public string? Album { get; init; }
+
+    public string? Genre { get; init; }
+
+    public string? Date { get; init; }
+
+    public string? Filename { get; init; }
+
+    public string? FilePath { get; init; }
+
+    public int Time { get; init; }
+
+    public int Length { get; init; }
+
+    public int RawVolume { get; init; }
+
+    public int Volume { get; init; }
+
+    public double Position { get; init; }
+
+    public MediaPlaybackAutoRepeatMode RepeatMode { get; init; }
+
+    public bool IsShuffleEnabled { get; init; }
+
+    public double Rate { get; init; } = 1.0;
+
+    public static StatusShim CreateStopped() => new()
     {
-        // Required bs, like state (playing, paused or stopped) and title
-        public required string State { get; set; }
-        public required string Title { get; set; }
-        public string? Artist { get; set; }
-        public string? Filename { get; set; }
-        // non-required bs
-        public int Time { get; set; }
-        public int Length { get; set; }
-        public int Volume { get; set; }
-        public double Position { get; set; } // 0.0-1.0
-        public MediaPlaybackAutoRepeatMode RepeatMode { get; set; }
-        public bool IsShuffleEnabled { get; set; }
-        public double Rate { get; set; } = 1.0;
-    }
+        State = "stopped",
+        Title = "VLC",
+        Volume = 100
+    };
 }

@@ -1,101 +1,170 @@
+using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using System.Text;
-using VlcShimDebugFr;
-using System;
 
-namespace VlcShimDebugFr
+namespace VlcShimDebugFr;
+
+internal sealed class VlcHttpClient : IDisposable
 {
-    internal sealed class VlcHttpClient : IDisposable
+    private readonly HttpClient _http;
+    private readonly Uri _baseUri;
+
+    private VlcHttpClient(HttpClient http, Uri baseUri)
     {
-        private readonly HttpClient _http;
-        private readonly string _baseUrl;
+        EnsureLoopbackBaseUri(baseUri);
+        _http = http;
+        _baseUri = baseUri;
+    }
 
-        private VlcHttpClient(HttpClient http, string baseUrl)
+    public string BaseUrl => _baseUri.GetLeftPart(UriPartial.Authority);
+
+    public static async Task<VlcHttpClient> CreateAsync(string password, int[]? preferredPorts, CancellationToken ct)
+    {
+        var ports = new List<int> { 8080, 4212 };
+        if (preferredPorts is not null)
         {
-            _http = http;
-            _baseUrl = baseUrl.TrimEnd('/');
+            ports.AddRange(preferredPorts.Where(IsValidPort));
         }
 
-        public string BaseUrl => _baseUrl;
-
-        public static async Task<VlcHttpClient> CreateAsync(string password, int[]? preferredPorts, CancellationToken ct)
+        foreach (int port in ports.Distinct())
         {
-            // Try ports in a sane order: 8080 default, then 4212, then extras.
-            var ports = new List<int> { 8080, 4212 };
-            if (preferredPorts != null) ports.AddRange(preferredPorts.Where(p => p > 0));
-            ports = ports.Distinct().ToList();
+            var http = BuildClient(password);
+            Uri baseUri = BuildLoopbackBaseUri(port);
+            var client = new VlcHttpClient(http, baseUri);
 
-            foreach (var port in ports)
+            try
             {
-                var http = BuildClient(password);
-                var baseUrl = $"http://127.0.0.1:{port}";
-                var client = new VlcHttpClient(http, baseUrl);
-
-                try
-                {
-                    // Probe status.json
-                    _ = await client.GetStatusJsonAsync(ct);
-                    return client;
-                }
-                catch
-                {
-                    client.Dispose();
-                }
+                _ = await client.GetStatusJsonAsync(ct);
+                return client;
             }
-
-            throw new InvalidOperationException("Could not connect to VLC HTTP interface on any tested port (8080/4212/custom).");
-        }
-
-        private static HttpClient BuildClient(string password)
-        {
-            var http = new HttpClient
+            catch
             {
-                Timeout = TimeSpan.FromSeconds(2)
-            };
-
-            // VLC uses Basic auth. Username is usually empty.
-            var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($":{password}"));
-            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", token);
-            return http;
-        }
-
-        public async Task<string> GetStatusJsonAsync(CancellationToken ct)
-        {
-            var url = $"{_baseUrl}/requests/status.json";
-            using var resp = await _http.GetAsync(url, ct);
-            resp.EnsureSuccessStatusCode();
-            return await resp.Content.ReadAsStringAsync(ct);
-        }
-
-        public Task SendCommandAsync(string command, CancellationToken ct = default)
-            => SendCommandAsync(command, null, ct);
-
-        public async Task SendCommandAsync(string command, Dictionary<string, string>? parameters, CancellationToken ct = default)
-        {
-            var sb = new StringBuilder();
-            sb.Append($"{_baseUrl}/requests/status.json?command={Uri.EscapeDataString(command)}");
-
-            if (parameters != null)
-            {
-                foreach (var kv in parameters)
-                {
-                    sb.Append('&')
-                      .Append(Uri.EscapeDataString(kv.Key))
-                      .Append('=')
-                      .Append(Uri.EscapeDataString(kv.Value));
-                }
+                client.Dispose();
             }
-
-            using var resp = await _http.GetAsync(sb.ToString(), ct);
-            resp.EnsureSuccessStatusCode();
         }
 
-        public Task SeekAsync(double percent, CancellationToken ct = default)
+        throw new InvalidOperationException("Could not connect to VLC HTTP interface on any tested local port (8080/4212/custom).");
+    }
+
+    private static HttpClient BuildClient(string password)
+    {
+        var handler = new SocketsHttpHandler
         {
-            percent = Math.Clamp(percent, 0, 100);
-            return SendCommandAsync("seek", new() { ["val"] = $"{percent:0}%" }, ct);
+            AllowAutoRedirect = false,
+            UseCookies = false,
+            UseProxy = false,
+            ConnectTimeout = TimeSpan.FromSeconds(2),
+            ConnectCallback = ConnectLoopbackAsync
+        };
+
+        var http = new HttpClient(handler, disposeHandler: true)
+        {
+            Timeout = TimeSpan.FromSeconds(2)
+        };
+
+        var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($":{password}"));
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", token);
+        return http;
+    }
+
+    public async Task<string> GetStatusJsonAsync(CancellationToken ct)
+    {
+        using var resp = await _http.GetAsync(BuildStatusUri(), ct);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadAsStringAsync(ct);
+    }
+
+    public Task SendCommandAsync(string command, CancellationToken ct = default)
+        => SendCommandAsync(command, null, ct);
+
+    public async Task SendCommandAsync(string command, Dictionary<string, string>? parameters, CancellationToken ct = default)
+    {
+        using var resp = await _http.GetAsync(BuildStatusUri(command, parameters), ct);
+        resp.EnsureSuccessStatusCode();
+    }
+
+    public Task SeekAsync(double percent, CancellationToken ct = default)
+    {
+        percent = Math.Clamp(percent, 0, 100);
+        return SendCommandAsync("seek", new() { ["val"] = $"{percent:0}%" }, ct);
+    }
+
+    public void Dispose()
+    {
+        _http.Dispose();
+    }
+
+    private Uri BuildStatusUri(string? command = null, Dictionary<string, string>? parameters = null)
+    {
+        var builder = new UriBuilder(_baseUri)
+        {
+            Path = "/requests/status.json"
+        };
+
+        var queryParts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(command))
+        {
+            queryParts.Add($"command={Uri.EscapeDataString(command)}");
         }
 
-        public void Dispose() => _http.Dispose();
+        if (parameters is not null)
+        {
+            foreach ((string key, string value) in parameters)
+            {
+                queryParts.Add($"{Uri.EscapeDataString(key)}={Uri.EscapeDataString(value)}");
+            }
+        }
+
+        builder.Query = string.Join("&", queryParts);
+        Uri uri = builder.Uri;
+        EnsureLoopbackBaseUri(new Uri(uri.GetLeftPart(UriPartial.Authority)));
+        return uri;
+    }
+
+    private static Uri BuildLoopbackBaseUri(int port)
+    {
+        if (!IsValidPort(port))
+        {
+            throw new ArgumentOutOfRangeException(nameof(port));
+        }
+
+        return new UriBuilder(Uri.UriSchemeHttp, IPAddress.Loopback.ToString(), port).Uri;
+    }
+
+    private static void EnsureLoopbackBaseUri(Uri uri)
+    {
+        if (!uri.IsAbsoluteUri ||
+            !string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+            !IPAddress.TryParse(uri.Host, out var address) ||
+            !IPAddress.IsLoopback(address))
+        {
+            throw new InvalidOperationException("Refusing to connect to a non-loopback VLC endpoint.");
+        }
+    }
+
+    private static bool IsValidPort(int port)
+    {
+        return port is >= IPEndPoint.MinPort and <= IPEndPoint.MaxPort;
+    }
+
+    private static async ValueTask<Stream> ConnectLoopbackAsync(SocketsHttpConnectionContext context, CancellationToken ct)
+    {
+        if (!IPAddress.TryParse(context.DnsEndPoint.Host, out var address) || !IPAddress.IsLoopback(address))
+        {
+            throw new HttpRequestException("Refusing non-loopback HTTP target.");
+        }
+
+        var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+        try
+        {
+            await socket.ConnectAsync(address, context.DnsEndPoint.Port, ct);
+            return new NetworkStream(socket, ownsSocket: true);
+        }
+        catch
+        {
+            socket.Dispose();
+            throw;
+        }
     }
 }
