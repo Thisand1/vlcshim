@@ -20,7 +20,7 @@ internal static partial class Program
         var logPath = GetLogPath();
 
         VerboseLogger.Init(logPath);
-        VerboseLogger.StartTail(logPath);
+        VerboseLogger.StartTail(logPath, LogViewerThemes.Get(config.LogViewerThemeId));
         VerboseLogger.Info("🚀 VLC shim booting up.");
         VerboseLogger.Info($"🪪 Shell identity {(identity.Applied ? "applied" : "fallback failed")}: {identity.DisplayName} [{identity.AppUserModelId}]");
         VerboseLogger.Info("🎚️ SMTC host session ready.");
@@ -115,7 +115,7 @@ internal static partial class Program
 
             VerboseLogger.Info($"⚙️ Config saved. Player profile: {PlayerIdentityProfiles.GetDisplayName(updatedConfig)}");
             MessageBox.Show(
-                "Settings saved. Restart the shim to apply player identity and compatibility bridge changes.",
+                "Settings saved. Restart the shim to apply player identity, compatibility bridge, and log viewer theme changes.",
                 "VLC Shim Settings",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);

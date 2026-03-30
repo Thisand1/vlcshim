@@ -11,15 +11,18 @@ internal sealed class LogViewerForm : Form
 
     private readonly string _logPath;
     private readonly TextBox _textBox;
+    private readonly LogViewerTheme _theme;
 
-    public LogViewerForm(string logPath)
+    public LogViewerForm(string logPath, LogViewerTheme theme)
     {
         _logPath = logPath;
+        _theme = theme;
 
         Text = "VLC Shim Logs";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(760, 360);
         Size = new Size(980, 560);
+        BackColor = Color.FromArgb(_theme.BackgroundArgb);
 
         _textBox = new TextBox
         {
@@ -28,8 +31,8 @@ internal sealed class LogViewerForm : Form
             ReadOnly = true,
             ScrollBars = ScrollBars.Both,
             WordWrap = false,
-            BackColor = Color.FromArgb(20, 22, 31),
-            ForeColor = Color.FromArgb(199, 255, 216),
+            BackColor = Color.FromArgb(_theme.BackgroundArgb),
+            ForeColor = Color.FromArgb(_theme.ForegroundArgb),
             BorderStyle = BorderStyle.None,
             Font = CreateFont()
         };

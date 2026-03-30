@@ -6,6 +6,7 @@ namespace VlcShimDebugFr;
 internal sealed class ConfigForm : Form
 {
     private readonly ComboBox _playerSelector;
+    private readonly ComboBox _logThemeSelector;
     private readonly TextBox _customNameTextBox;
     private readonly TextBox _customAppIdTextBox;
     private readonly CheckBox _showToastCheckBox;
@@ -20,17 +21,18 @@ internal sealed class ConfigForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         ShowInTaskbar = false;
-        ClientSize = new Size(440, 250);
+        ClientSize = new Size(440, 290);
 
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             Padding = new Padding(12),
             ColumnCount = 2,
-            RowCount = 6
+            RowCount = 7
         };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -89,6 +91,26 @@ internal sealed class ConfigForm : Form
         };
         root.Controls.Add(_customAppIdTextBox, 1, 2);
 
+        root.Controls.Add(new Label
+        {
+            Text = "Log viewer theme",
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            Margin = new Padding(0, 6, 8, 6)
+        }, 0, 3);
+
+        _logThemeSelector = new ComboBox
+        {
+            Dock = DockStyle.Fill,
+            DropDownStyle = ComboBoxStyle.DropDownList
+        };
+        foreach (var theme in LogViewerThemes.All)
+        {
+            _logThemeSelector.Items.Add(theme);
+        }
+        _logThemeSelector.DisplayMember = nameof(LogViewerTheme.Label);
+        root.Controls.Add(_logThemeSelector, 1, 3);
+
         _showToastCheckBox = new CheckBox
         {
             Text = "Show startup warning toast",
@@ -97,16 +119,16 @@ internal sealed class ConfigForm : Form
             Margin = new Padding(0, 10, 0, 0)
         };
         root.SetColumnSpan(_showToastCheckBox, 2);
-        root.Controls.Add(_showToastCheckBox, 0, 3);
+        root.Controls.Add(_showToastCheckBox, 0, 4);
 
         var noteLabel = new Label
         {
             Dock = DockStyle.Fill,
             AutoSize = true,
-            Text = "Player identity changes apply on next launch. Selecting AIMP also enables the Rainmeter-compatible AIMP bridge on restart."
+            Text = "Player identity changes apply on next launch. Selecting AIMP also enables the Rainmeter-compatible AIMP bridge on restart. Log viewer theme changes also apply after restart."
         };
         root.SetColumnSpan(noteLabel, 2);
-        root.Controls.Add(noteLabel, 0, 4);
+        root.Controls.Add(noteLabel, 0, 5);
 
         var buttons = new FlowLayoutPanel
         {
@@ -132,7 +154,7 @@ internal sealed class ConfigForm : Form
         buttons.Controls.Add(saveButton);
         buttons.Controls.Add(cancelButton);
         root.SetColumnSpan(buttons, 2);
-        root.Controls.Add(buttons, 0, 5);
+        root.Controls.Add(buttons, 0, 6);
 
         Controls.Add(root);
 
@@ -140,6 +162,7 @@ internal sealed class ConfigForm : Form
         CancelButton = cancelButton;
 
         _playerSelector.SelectedItem = PlayerIdentityProfiles.Get(Config.PlayerProfileId);
+        _logThemeSelector.SelectedItem = LogViewerThemes.Get(Config.LogViewerThemeId);
         UpdateCustomFieldState();
     }
 
@@ -157,6 +180,7 @@ internal sealed class ConfigForm : Form
         var profile = _playerSelector.SelectedItem as PlayerIdentityProfile ?? PlayerIdentityProfiles.Default;
 
         Config.PlayerProfileId = profile.Id;
+        Config.LogViewerThemeId = (_logThemeSelector.SelectedItem as LogViewerTheme ?? LogViewerThemes.Default).Id;
         Config.CustomPlayerDisplayName = _customNameTextBox.Text.Trim();
         Config.CustomAppUserModelId = _customAppIdTextBox.Text.Trim();
         Config.ShowStartupToast = _showToastCheckBox.Checked;

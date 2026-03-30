@@ -50,7 +50,8 @@ internal static class ConfigStore
             PlayerProfileId = config.PlayerProfileId,
             CustomPlayerDisplayName = config.CustomPlayerDisplayName,
             CustomAppUserModelId = config.CustomAppUserModelId,
-            ShowStartupToast = config.ShowStartupToast
+            ShowStartupToast = config.ShowStartupToast,
+            LogViewerThemeId = config.LogViewerThemeId
         };
     }
 }

@@ -42,7 +42,7 @@ internal static class VerboseLogger
         }
     }
 
-    public static void StartTail(string logPath)
+    public static void StartTail(string logPath, LogViewerTheme theme)
     {
         lock (Sync)
         {
@@ -53,7 +53,7 @@ internal static class VerboseLogger
 
             _viewerThread = new Thread(() =>
             {
-                using var form = new LogViewerForm(logPath);
+                using var form = new LogViewerForm(logPath, theme);
 
                 lock (Sync)
                 {
