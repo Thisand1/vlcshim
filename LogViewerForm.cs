@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
 
@@ -6,37 +7,40 @@ namespace VlcShimDebugFr;
 
 internal sealed class LogViewerForm : Form
 {
-    private const int MaxDisplayedChars = 200_000;
+    internal const int MaxDisplayedChars = 200_000;
     private const int InitialLineCount = 200;
+    private const int DwmwaUseImmersiveDarkMode = 20;
+    private const int DwmwaBorderColor = 34;
+    private const int DwmwaCaptionColor = 35;
+    private const int DwmwaTextColor = 36;
 
     private readonly string _logPath;
-    private readonly TextBox _textBox;
+    private readonly DirectWriteLogControl _logView;
+    private LogViewerTheme _theme;
 
-    public LogViewerForm(string logPath)
+    public LogViewerForm(string logPath, LogViewerTheme theme, ShimConfig config)
     {
         _logPath = logPath;
+        _theme = theme;
 
         Text = "VLC Shim Logs";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(760, 360);
         Size = new Size(980, 560);
+        BackColor = Color.FromArgb(_theme.SurfaceArgb);
+        Padding = new Padding(1);
 
-        _textBox = new TextBox
+        _logView = new DirectWriteLogControl(_theme, config)
         {
-            Dock = DockStyle.Fill,
-            Multiline = true,
-            ReadOnly = true,
-            ScrollBars = ScrollBars.Both,
-            WordWrap = false,
-            BackColor = Color.FromArgb(20, 22, 31),
-            ForeColor = Color.FromArgb(199, 255, 216),
-            BorderStyle = BorderStyle.None,
-            Font = CreateFont()
+            Dock = DockStyle.Fill
         };
 
-        Controls.Add(_textBox);
+        Controls.Add(_logView);
         Shown += (_, _) => LoadExistingLines();
     }
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
 
     public void AppendLine(string line)
     {
@@ -58,20 +62,34 @@ internal sealed class LogViewerForm : Form
             return;
         }
 
-        if (_textBox.TextLength > 0)
+        _logView.AppendLine(line);
+    }
+
+    public void ApplyConfig(LogViewerTheme theme, ShimConfig config)
+    {
+        if (IsDisposed)
         {
-            _textBox.AppendText(Environment.NewLine);
+            return;
         }
 
-        _textBox.AppendText(line);
-
-        if (_textBox.TextLength > MaxDisplayedChars)
+        if (InvokeRequired)
         {
-            _textBox.Text = _textBox.Text[^MaxDisplayedChars..];
+            try
+            {
+                BeginInvoke(new Action<LogViewerTheme, ShimConfig>(ApplyConfig), theme, config);
+            }
+            catch
+            {
+            }
+
+            return;
         }
 
-        _textBox.SelectionStart = _textBox.TextLength;
-        _textBox.ScrollToCaret();
+        _theme = theme;
+        BackColor = Color.FromArgb(_theme.SurfaceArgb);
+        _logView.ApplyConfig(theme, config);
+        ApplyWindowChromeTheme();
+        Invalidate(true);
     }
 
     public void RequestClose()
@@ -121,29 +139,39 @@ internal sealed class LogViewerForm : Form
                 return;
             }
 
-            _textBox.Lines = queue.ToArray();
-            _textBox.SelectionStart = _textBox.TextLength;
-            _textBox.ScrollToCaret();
+            _logView.LoadLines(queue);
         }
         catch
         {
         }
     }
 
-    private static Font CreateFont()
+    protected override void OnHandleCreated(EventArgs e)
     {
-        foreach (string candidate in new[] { "Cascadia Mono", "Cascadia Code", "Consolas" })
-        {
-            try
-            {
-                return new Font(candidate, 9f, FontStyle.Regular);
-            }
-            catch
-            {
-            }
-        }
+        base.OnHandleCreated(e);
+        ApplyWindowChromeTheme();
+    }
 
-        Font fallback = SystemFonts.MessageBoxFont ?? SystemFonts.DefaultFont;
-        return new Font(fallback.FontFamily, 9f, FontStyle.Regular);
+    private void ApplyWindowChromeTheme()
+    {
+        try
+        {
+            int enabled = 1;
+            int background = ToColorRef(Color.FromArgb(_theme.SurfaceArgb));
+            int foreground = ToColorRef(Color.FromArgb(_theme.ForegroundArgb));
+
+            DwmSetWindowAttribute(Handle, DwmwaUseImmersiveDarkMode, ref enabled, sizeof(int));
+            DwmSetWindowAttribute(Handle, DwmwaCaptionColor, ref background, sizeof(int));
+            DwmSetWindowAttribute(Handle, DwmwaBorderColor, ref background, sizeof(int));
+            DwmSetWindowAttribute(Handle, DwmwaTextColor, ref foreground, sizeof(int));
+        }
+        catch
+        {
+        }
+    }
+
+    private static int ToColorRef(Color color)
+    {
+        return color.R | (color.G << 8) | (color.B << 16);
     }
 }

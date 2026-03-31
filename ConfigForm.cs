@@ -6,8 +6,12 @@ namespace VlcShimDebugFr;
 internal sealed class ConfigForm : Form
 {
     private readonly ComboBox _playerSelector;
+    private readonly ComboBox _logThemeSelector;
     private readonly TextBox _customNameTextBox;
     private readonly TextBox _customAppIdTextBox;
+    private readonly TextBox _backgroundImagePathTextBox;
+    private readonly NumericUpDown _backgroundOpacityNumeric;
+    private readonly NumericUpDown _backgroundDimNumeric;
     private readonly CheckBox _showToastCheckBox;
 
     public ConfigForm(ShimConfig config)
@@ -20,21 +24,21 @@ internal sealed class ConfigForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         ShowInTaskbar = false;
-        ClientSize = new Size(440, 250);
+        ClientSize = new Size(560, 390);
 
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             Padding = new Padding(12),
             ColumnCount = 2,
-            RowCount = 6
+            RowCount = 10
         };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        for (int i = 0; i < 8; i++)
+        {
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        }
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
@@ -89,6 +93,105 @@ internal sealed class ConfigForm : Form
         };
         root.Controls.Add(_customAppIdTextBox, 1, 2);
 
+        root.Controls.Add(new Label
+        {
+            Text = "Log viewer theme",
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            Margin = new Padding(0, 6, 8, 6)
+        }, 0, 3);
+
+        _logThemeSelector = new ComboBox
+        {
+            Dock = DockStyle.Fill,
+            DropDownStyle = ComboBoxStyle.DropDownList
+        };
+        foreach (var theme in LogViewerThemes.All)
+        {
+            _logThemeSelector.Items.Add(theme);
+        }
+        _logThemeSelector.DisplayMember = nameof(LogViewerTheme.Label);
+        root.Controls.Add(_logThemeSelector, 1, 3);
+
+        root.Controls.Add(new Label
+        {
+            Text = "Log background",
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            Margin = new Padding(0, 6, 8, 6)
+        }, 0, 4);
+
+        var backgroundImagePanel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 3,
+            AutoSize = true
+        };
+        backgroundImagePanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        backgroundImagePanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        backgroundImagePanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+        _backgroundImagePathTextBox = new TextBox
+        {
+            Dock = DockStyle.Fill,
+            Text = Config.LogViewerBackgroundImagePath
+        };
+
+        var browseBackgroundButton = new Button
+        {
+            Text = "Browse...",
+            AutoSize = true
+        };
+        browseBackgroundButton.Click += (_, __) => BrowseForBackgroundImage();
+
+        var clearBackgroundButton = new Button
+        {
+            Text = "Clear",
+            AutoSize = true
+        };
+        clearBackgroundButton.Click += (_, __) => _backgroundImagePathTextBox.Text = string.Empty;
+
+        backgroundImagePanel.Controls.Add(_backgroundImagePathTextBox, 0, 0);
+        backgroundImagePanel.Controls.Add(browseBackgroundButton, 1, 0);
+        backgroundImagePanel.Controls.Add(clearBackgroundButton, 2, 0);
+        root.Controls.Add(backgroundImagePanel, 1, 4);
+
+        root.Controls.Add(new Label
+        {
+            Text = "Image opacity",
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            Margin = new Padding(0, 6, 8, 6)
+        }, 0, 5);
+
+        _backgroundOpacityNumeric = new NumericUpDown
+        {
+            Dock = DockStyle.Left,
+            Minimum = 0,
+            Maximum = 100,
+            Value = Math.Clamp(Config.LogViewerBackgroundOpacityPercent, 0, 100),
+            Width = 80
+        };
+        root.Controls.Add(_backgroundOpacityNumeric, 1, 5);
+
+        root.Controls.Add(new Label
+        {
+            Text = "Backdrop dim",
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            Margin = new Padding(0, 6, 8, 6)
+        }, 0, 6);
+
+        _backgroundDimNumeric = new NumericUpDown
+        {
+            Dock = DockStyle.Left,
+            Minimum = 0,
+            Maximum = 100,
+            Value = Math.Clamp(Config.LogViewerBackgroundDimPercent, 0, 100),
+            Width = 80
+        };
+        root.Controls.Add(_backgroundDimNumeric, 1, 6);
+
         _showToastCheckBox = new CheckBox
         {
             Text = "Show startup warning toast",
@@ -97,16 +200,16 @@ internal sealed class ConfigForm : Form
             Margin = new Padding(0, 10, 0, 0)
         };
         root.SetColumnSpan(_showToastCheckBox, 2);
-        root.Controls.Add(_showToastCheckBox, 0, 3);
+        root.Controls.Add(_showToastCheckBox, 0, 7);
 
         var noteLabel = new Label
         {
             Dock = DockStyle.Fill,
             AutoSize = true,
-            Text = "Player identity changes apply on next launch. Selecting AIMP also enables the Rainmeter-compatible AIMP bridge on restart."
+            Text = "Settings apply immediately after Save. Windows shell identity surfaces can still refresh lazily, but the tray icon, Rainmeter bridge, and log viewer update live."
         };
         root.SetColumnSpan(noteLabel, 2);
-        root.Controls.Add(noteLabel, 0, 4);
+        root.Controls.Add(noteLabel, 0, 8);
 
         var buttons = new FlowLayoutPanel
         {
@@ -132,7 +235,7 @@ internal sealed class ConfigForm : Form
         buttons.Controls.Add(saveButton);
         buttons.Controls.Add(cancelButton);
         root.SetColumnSpan(buttons, 2);
-        root.Controls.Add(buttons, 0, 5);
+        root.Controls.Add(buttons, 0, 9);
 
         Controls.Add(root);
 
@@ -140,6 +243,7 @@ internal sealed class ConfigForm : Form
         CancelButton = cancelButton;
 
         _playerSelector.SelectedItem = PlayerIdentityProfiles.Get(Config.PlayerProfileId);
+        _logThemeSelector.SelectedItem = LogViewerThemes.Get(Config.LogViewerThemeId);
         UpdateCustomFieldState();
     }
 
@@ -157,11 +261,42 @@ internal sealed class ConfigForm : Form
         var profile = _playerSelector.SelectedItem as PlayerIdentityProfile ?? PlayerIdentityProfiles.Default;
 
         Config.PlayerProfileId = profile.Id;
+        Config.LogViewerThemeId = (_logThemeSelector.SelectedItem as LogViewerTheme ?? LogViewerThemes.Default).Id;
         Config.CustomPlayerDisplayName = _customNameTextBox.Text.Trim();
         Config.CustomAppUserModelId = _customAppIdTextBox.Text.Trim();
+        Config.LogViewerBackgroundImagePath = _backgroundImagePathTextBox.Text.Trim();
+        Config.LogViewerBackgroundOpacityPercent = Decimal.ToInt32(_backgroundOpacityNumeric.Value);
+        Config.LogViewerBackgroundDimPercent = Decimal.ToInt32(_backgroundDimNumeric.Value);
         Config.ShowStartupToast = _showToastCheckBox.Checked;
 
         DialogResult = DialogResult.OK;
         Close();
+    }
+
+    private void BrowseForBackgroundImage()
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Title = "Choose log background image",
+            Filter = "Image files|*.png;*.jpg;*.jpeg;*.bmp;*.gif|All files|*.*",
+            CheckFileExists = true,
+            RestoreDirectory = true
+        };
+
+        if (!string.IsNullOrWhiteSpace(_backgroundImagePathTextBox.Text))
+        {
+            try
+            {
+                dialog.InitialDirectory = Path.GetDirectoryName(_backgroundImagePathTextBox.Text);
+            }
+            catch
+            {
+            }
+        }
+
+        if (dialog.ShowDialog(this) == DialogResult.OK)
+        {
+            _backgroundImagePathTextBox.Text = dialog.FileName;
+        }
     }
 }

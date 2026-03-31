@@ -18,6 +18,7 @@ internal static class StatusShimParser
         string state = GetString(root, "state") ?? "stopped";
         int time = GetInt32(root, "time");
         int length = GetInt32(root, "length");
+        int currentPlaylistId = GetInt32(root, "currentplid", -1);
         int rawVolume = GetInt32(root, "volume");
         double position = GetDouble(root, "position");
         bool isShuffleEnabled = GetBoolean(root, "random");
@@ -29,11 +30,7 @@ internal static class StatusShimParser
         string? filePath = GetString(meta, "filename") ?? GetString(meta, "url");
         string? filename = string.IsNullOrWhiteSpace(filePath) ? null : Path.GetFileName(filePath);
         string? parsedTitle = GetString(meta, "title");
-        string title = !string.IsNullOrWhiteSpace(parsedTitle)
-            ? parsedTitle.Trim()
-            : !string.IsNullOrWhiteSpace(filename)
-                ? filename
-                : "VLC";
+        string title = ResolveTitle(state, currentPlaylistId, length, parsedTitle, filename, filePath);
 
         return new StatusShim
         {
@@ -83,9 +80,14 @@ internal static class StatusShimParser
 
     private static int GetInt32(JsonElement element, string name)
     {
+        return GetInt32(element, name, 0);
+    }
+
+    private static int GetInt32(JsonElement element, string name, int defaultValue)
+    {
         return element.TryGetProperty(name, out var property) && property.TryGetInt32(out var value)
             ? value
-            : 0;
+            : defaultValue;
     }
 
     private static double GetDouble(JsonElement element, string name, double defaultValue = 0d)
@@ -105,6 +107,55 @@ internal static class StatusShimParser
     private static string? NormalizeOptionalString(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static string ResolveTitle(
+        string state,
+        int currentPlaylistId,
+        int length,
+        string? parsedTitle,
+        string? filename,
+        string? filePath)
+    {
+        string? normalizedTitle = NormalizeOptionalString(parsedTitle);
+        bool hasMediaContext =
+            currentPlaylistId >= 0 ||
+            length > 0 ||
+            !string.IsNullOrWhiteSpace(filePath) ||
+            !string.IsNullOrWhiteSpace(filename);
+
+        if (!hasMediaContext)
+        {
+            if (string.IsNullOrWhiteSpace(normalizedTitle) || LooksLikeVlcBranding(normalizedTitle))
+            {
+                return "VLC";
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(normalizedTitle))
+        {
+            return normalizedTitle;
+        }
+
+        if (!string.IsNullOrWhiteSpace(filename))
+        {
+            return filename;
+        }
+
+        return state == "stopped" ? "VLC" : "Unknown";
+    }
+
+    private static bool LooksLikeVlcBranding(string value)
+    {
+        string compact = new string(value
+            .Where(ch => char.IsLetterOrDigit(ch) || char.IsWhiteSpace(ch))
+            .ToArray())
+            .Trim();
+
+        return compact.Equals("VLC", StringComparison.OrdinalIgnoreCase) ||
+               compact.Equals("VLC media player", StringComparison.OrdinalIgnoreCase) ||
+               compact.Equals("VLC media player skinned", StringComparison.OrdinalIgnoreCase) ||
+               compact.Contains("VLC media player", StringComparison.OrdinalIgnoreCase);
     }
 
     private static int NormalizeVolume(int rawVolume)

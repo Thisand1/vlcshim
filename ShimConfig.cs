@@ -11,4 +11,10 @@ internal sealed class ShimConfig
     public bool ShowStartupToast { get; set; } = true;
 
     public string LogViewerThemeId { get; set; } = LogViewerThemes.Default.Id;
+
+    public string LogViewerBackgroundImagePath { get; set; } = string.Empty;
+
+    public int LogViewerBackgroundOpacityPercent { get; set; } = 18;
+
+    public int LogViewerBackgroundDimPercent { get; set; } = 68;
 }

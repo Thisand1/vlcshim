@@ -3,9 +3,20 @@ using Windows.Media;
 using VlcShimDebugFr;
 using System.Text;
 using System.Net;
+using System.Drawing;
 
 internal static partial class Program
 {
+    private sealed class IconHolder
+    {
+        public IconHolder(Icon icon)
+        {
+            Icon = icon;
+        }
+
+        public Icon Icon { get; set; }
+    }
+
     [STAThread]
     private static void Main(string[] args)
     {
@@ -16,25 +27,22 @@ internal static partial class Program
 
         using var cts = new CancellationTokenSource();
         using var hostSession = new SmtcHostSession();
+        var trayIconHolder = new IconHolder(PlayerIcons.LoadForProfile(config));
+        using var rainmeterBridgeController = new RainmeterBridgeController();
         var ctx = new ApplicationContext();
         var logPath = GetLogPath();
 
         VerboseLogger.Init(logPath);
-        VerboseLogger.StartTail(logPath);
+        VerboseLogger.StartTail(logPath, LogViewerThemes.Get(config.LogViewerThemeId), config);
         VerboseLogger.Info("🚀 VLC shim booting up.");
         VerboseLogger.Info($"🪪 Shell identity {(identity.Applied ? "applied" : "fallback failed")}: {identity.DisplayName} [{identity.AppUserModelId}]");
         VerboseLogger.Info("🎚️ SMTC host session ready.");
 
-        RainmeterAimpBridge? rainmeterBridge = null;
         if (ShouldEnableRainmeterAimpBridge(config))
         {
             try
             {
-                rainmeterBridge = new RainmeterAimpBridge(() =>
-                {
-                    try { cts.Cancel(); } catch { }
-                    ctx.ExitThread();
-                });
+                rainmeterBridgeController.Replace(CreateRainmeterBridge(cts, ctx));
             }
             catch (Exception ex)
             {
@@ -52,16 +60,23 @@ internal static partial class Program
         {
             Visible = true,
             Text = BuildTrayText(config),
-            Icon = System.Drawing.SystemIcons.Application,
+            Icon = trayIconHolder.Icon,
         };
-        tray.ContextMenuStrip = BuildMenu(tray, cts, ctx, () => config, updated => config = updated);
+        tray.ContextMenuStrip = BuildMenu(
+            tray,
+            cts,
+            ctx,
+            () => config,
+            updated => config = updated,
+            (previousConfig, updatedConfig) => ApplyRuntimeConfig(previousConfig, updatedConfig, tray, trayIconHolder, rainmeterBridgeController, cts, ctx));
 
         ctx.ThreadExit += (_, __) =>
         {
             try { cts.Cancel(); } catch { }
-            rainmeterBridge?.Dispose();
+            rainmeterBridgeController.Dispose();
             tray.Visible = false;
             tray.Dispose();
+            trayIconHolder.Icon.Dispose();
             VerboseLogger.Info("🛑 VLC shim shutting down.");
             VerboseLogger.Shutdown();
         };
@@ -70,7 +85,7 @@ internal static partial class Program
         {
             try
             {
-                await RunBridgeAsync(hostSession.Smtc, rainmeterBridge, args, cts.Token);
+                await RunBridgeAsync(hostSession.Smtc, rainmeterBridgeController, args, cts.Token);
             }
             catch (OperationCanceledException)
             {
@@ -93,7 +108,8 @@ internal static partial class Program
         CancellationTokenSource cts,
         ApplicationContext ctx,
         Func<ShimConfig> getConfig,
-        Action<ShimConfig> setConfig)
+        Action<ShimConfig> setConfig,
+        Action<ShimConfig, ShimConfig> applyRuntimeConfig)
     {
         var menu = new ContextMenuStrip();
         var configItem = new ToolStripMenuItem("Config...");
@@ -108,17 +124,17 @@ internal static partial class Program
                 return;
             }
 
+            var previousConfig = ConfigStore.Clone(getConfig());
             var updatedConfig = ConfigStore.Clone(form.Config);
             ConfigStore.Save(updatedConfig);
             setConfig(updatedConfig);
-            tray.Text = BuildTrayText(updatedConfig);
+            applyRuntimeConfig(previousConfig, updatedConfig);
 
             VerboseLogger.Info($"⚙️ Config saved. Player profile: {PlayerIdentityProfiles.GetDisplayName(updatedConfig)}");
-            MessageBox.Show(
-                "Settings saved. Restart the shim to apply player identity and compatibility bridge changes.",
-                "VLC Shim Settings",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
+            if (DidIdentitySettingsChange(previousConfig, updatedConfig))
+            {
+                VerboseLogger.Info("⚙️ Identity-related settings changed. Windows shell surfaces may refresh lazily.");
+            }
         };
 
         toastItem.Click += (_, __) =>
@@ -216,7 +232,7 @@ internal static partial class Program
 
     private static async Task RunBridgeAsync(
         SystemMediaTransportControls smtc,
-        RainmeterAimpBridge? rainmeterBridge,
+        RainmeterBridgeController rainmeterBridgeController,
         string[] args,
         CancellationToken ct)
     {
@@ -236,9 +252,9 @@ internal static partial class Program
                 vlc = await WaitForVlcAsync(password, extraPorts, ct);
                 VerboseLogger.Info($"🔌 Connected to VLC at {vlc.BaseUrl}");
                 publisher = new SmtcShimPublisher(smtc, vlc);
-                rainmeterBridge?.SetTransport(vlc);
+                rainmeterBridgeController.SetTransport(vlc);
                 VerboseLogger.Info("📡 Polling VLC -> SMTC started.");
-                await PollLoopAsync(vlc, publisher, rainmeterBridge, ct);
+                await PollLoopAsync(vlc, publisher, rainmeterBridgeController, ct);
             }
             catch (OperationCanceledException)
             {
@@ -255,8 +271,8 @@ internal static partial class Program
                 {
                     VerboseLogger.Info("🧹 Clearing SMTC session.");
                 }
-                rainmeterBridge?.SetTransport(null);
-                rainmeterBridge?.Clear();
+                rainmeterBridgeController.SetTransport(null);
+                rainmeterBridgeController.Clear();
                 publisher?.Clear();
                 publisher?.Dispose();
                 vlc?.Dispose();
@@ -288,7 +304,7 @@ internal static partial class Program
     private static async Task PollLoopAsync(
         VlcHttpClient vlc,
         SmtcShimPublisher publisher,
-        RainmeterAimpBridge? rainmeterBridge,
+        RainmeterBridgeController rainmeterBridgeController,
         CancellationToken ct)
     {
         const int pollMs = 250;
@@ -298,8 +314,93 @@ internal static partial class Program
             var json = await vlc.GetStatusJsonAsync(ct);
             var status = StatusShimParser.Parse(json);
             publisher.Update(status);
-            rainmeterBridge?.Update(status);
+            rainmeterBridgeController.Update(status);
             await Task.Delay(pollMs, ct);
         }
+    }
+
+    private static void ApplyRuntimeConfig(
+        ShimConfig previousConfig,
+        ShimConfig updatedConfig,
+        NotifyIcon tray,
+        IconHolder trayIconHolder,
+        RainmeterBridgeController rainmeterBridgeController,
+        CancellationTokenSource cts,
+        ApplicationContext ctx)
+    {
+        ApplyTrayConfig(tray, trayIconHolder, updatedConfig);
+        VerboseLogger.ApplyViewerConfig(LogViewerThemes.Get(updatedConfig.LogViewerThemeId), updatedConfig);
+        ApplyRainmeterBridgeConfig(previousConfig, updatedConfig, rainmeterBridgeController, cts, ctx);
+
+        if (DidIdentitySettingsChange(previousConfig, updatedConfig))
+        {
+            var identity = ShellIdentity.ApplyConfiguredIdentity(updatedConfig);
+            VerboseLogger.Info($"🪪 Shell identity live refresh {(identity.Applied ? "applied" : "failed")}: {identity.DisplayName} [{identity.AppUserModelId}]");
+        }
+    }
+
+    private static void ApplyTrayConfig(NotifyIcon tray, IconHolder trayIconHolder, ShimConfig config)
+    {
+        tray.Text = BuildTrayText(config);
+
+        Icon newIcon = PlayerIcons.LoadForProfile(config);
+        Icon oldIcon = trayIconHolder.Icon;
+        trayIconHolder.Icon = newIcon;
+        tray.Icon = newIcon;
+        oldIcon.Dispose();
+    }
+
+    private static void ApplyRainmeterBridgeConfig(
+        ShimConfig previousConfig,
+        ShimConfig updatedConfig,
+        RainmeterBridgeController rainmeterBridgeController,
+        CancellationTokenSource cts,
+        ApplicationContext ctx)
+    {
+        bool wasEnabled = ShouldEnableRainmeterAimpBridge(previousConfig);
+        bool shouldEnable = ShouldEnableRainmeterAimpBridge(updatedConfig);
+
+        if (wasEnabled == shouldEnable)
+        {
+            return;
+        }
+
+        if (!shouldEnable)
+        {
+            rainmeterBridgeController.Replace(null);
+            VerboseLogger.Info("🌧️ Rainmeter AIMP bridge disabled live.");
+            return;
+        }
+
+        try
+        {
+            rainmeterBridgeController.Replace(CreateRainmeterBridge(cts, ctx));
+            VerboseLogger.Info("🌧️ Rainmeter AIMP bridge enabled live.");
+        }
+        catch (Exception ex)
+        {
+            VerboseLogger.Error("🌧️ Failed to enable the Rainmeter AIMP bridge live.", ex);
+            MessageBox.Show(
+                $"The Rainmeter AIMP bridge could not be enabled live.\n\n{ex.Message}",
+                "VLC Shim Settings",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+    }
+
+    private static RainmeterAimpBridge CreateRainmeterBridge(CancellationTokenSource cts, ApplicationContext ctx)
+    {
+        return new RainmeterAimpBridge(() =>
+        {
+            try { cts.Cancel(); } catch { }
+            ctx.ExitThread();
+        });
+    }
+
+    private static bool DidIdentitySettingsChange(ShimConfig previousConfig, ShimConfig updatedConfig)
+    {
+        return !string.Equals(previousConfig.PlayerProfileId, updatedConfig.PlayerProfileId, StringComparison.OrdinalIgnoreCase) ||
+               !string.Equals(previousConfig.CustomPlayerDisplayName, updatedConfig.CustomPlayerDisplayName, StringComparison.Ordinal) ||
+               !string.Equals(previousConfig.CustomAppUserModelId, updatedConfig.CustomAppUserModelId, StringComparison.Ordinal);
     }
 }

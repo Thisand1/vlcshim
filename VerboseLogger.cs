@@ -42,7 +42,7 @@ internal static class VerboseLogger
         }
     }
 
-    public static void StartTail(string logPath)
+    public static void StartTail(string logPath, LogViewerTheme theme, ShimConfig config)
     {
         lock (Sync)
         {
@@ -53,7 +53,7 @@ internal static class VerboseLogger
 
             _viewerThread = new Thread(() =>
             {
-                using var form = new LogViewerForm(logPath);
+                using var form = new LogViewerForm(logPath, theme, config);
 
                 lock (Sync)
                 {
@@ -95,6 +95,14 @@ internal static class VerboseLogger
         {
             string combined = ex is null ? message : $"{message} :: {ex.GetType().Name}: {ex.Message}";
             WriteInternal("app", "ERROR", combined);
+        }
+    }
+
+    public static void ApplyViewerConfig(LogViewerTheme theme, ShimConfig config)
+    {
+        lock (Sync)
+        {
+            _viewerForm?.ApplyConfig(theme, config);
         }
     }
 

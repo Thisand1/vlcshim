@@ -8,13 +8,21 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <EnableCsWinRT>true</EnableCsWinRT>
-    <AssemblyTitle>VLC media player</AssemblyTitle>
-    <Product>VLC media player</Product>
-    <Description>VLC media player bridge</Description>
+    <ApplicationIcon>assets\vlc.ico</ApplicationIcon>
+    <AssemblyTitle>VLC</AssemblyTitle>
+    <Product>VLC</Product>
+    <Description>VLC bridge</Description>
     <Company>VideoLAN</Company>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.CsWinRT" Version="2.2.0" />
+    <PackageReference Include="Vortice.Direct2D1" Version="3.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="assets\vlc.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>

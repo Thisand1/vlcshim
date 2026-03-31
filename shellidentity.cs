@@ -13,11 +13,17 @@ internal static class ShellIdentity
 
     public static ShellIdentityResult ApplyConfiguredIdentity(ShimConfig config)
     {
+        var profile = PlayerIdentityProfiles.Get(config.PlayerProfileId);
         var appId = Environment.GetEnvironmentVariable("VLC_SMTC_APPID");
         string displayName = PlayerIdentityProfiles.GetDisplayName(config);
         bool matchedInstalledApp = false;
 
-        if (string.IsNullOrWhiteSpace(appId))
+        if (string.IsNullOrWhiteSpace(appId) && !profile.UseExplicitAppUserModelId)
+        {
+            return new ShellIdentityResult(displayName, "(process-default)", true, false);
+        }
+
+        if (string.IsNullOrWhiteSpace(appId) && profile.PreferInstalledAppMatch)
         {
             appId = TryResolveInstalledAppId(displayName);
             matchedInstalledApp = !string.IsNullOrWhiteSpace(appId);
@@ -30,6 +36,11 @@ internal static class ShellIdentity
 
         try
         {
+            if (!matchedInstalledApp && IsUsableAppUserModelId(appId))
+            {
+                ShortcutIdentityRegistrar.EnsureShortcut(appId, displayName, PlayerIconResolver.ResolveIconPath(config));
+            }
+
             Marshal.ThrowExceptionForHR(SetCurrentProcessExplicitAppUserModelID(appId));
             return new ShellIdentityResult(displayName, appId, true, matchedInstalledApp);
         }
@@ -87,10 +98,27 @@ internal static class ShellIdentity
                     continue;
                 }
 
-                string? appId = item?.Path as string;
+                string? appId = null;
+                try
+                {
+                    appId = item?.ExtendedProperty("System.AppUserModel.ID") as string;
+                }
+                catch
+                {
+                }
+
+                if (!IsUsableAppUserModelId(appId))
+                {
+                    appId = item?.Path as string;
+                }
+
                 if (!string.IsNullOrWhiteSpace(appId))
                 {
-                    return appId;
+                    string trimmed = appId.Trim();
+                    if (IsUsableAppUserModelId(trimmed))
+                    {
+                        return trimmed;
+                    }
                 }
             }
         }
@@ -117,6 +145,28 @@ internal static class ShellIdentity
         return string.Equals(candidate, expected, StringComparison.OrdinalIgnoreCase) ||
                candidate.Contains(expected, StringComparison.OrdinalIgnoreCase) ||
                expected.Contains(candidate, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsUsableAppUserModelId(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        string trimmed = value.Trim();
+
+        // Reject shell PIDL-like paths and executable paths. Those are not stable AppUserModelIDs
+        // and can leak directly into shell UI as raw identifiers.
+        if (trimmed.Contains('\\') ||
+            trimmed.Contains('/') ||
+            trimmed.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.StartsWith('{'))
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private static void ReleaseComObject(object? instance)

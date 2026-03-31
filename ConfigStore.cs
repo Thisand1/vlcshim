@@ -6,7 +6,9 @@ internal static class ConfigStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = true,
+        AllowTrailingCommas = true,
+        ReadCommentHandling = JsonCommentHandling.Skip
     };
 
     public static string GetConfigPath()
@@ -39,8 +41,20 @@ internal static class ConfigStore
     public static void Save(ShimConfig config)
     {
         string path = GetConfigPath();
-        Directory.CreateDirectory(Path.GetDirectoryName(path) ?? ".");
-        File.WriteAllText(path, JsonSerializer.Serialize(config, JsonOptions));
+        string directory = Path.GetDirectoryName(path) ?? ".";
+        Directory.CreateDirectory(directory);
+
+        string tempPath = Path.Combine(directory, $"{Path.GetFileName(path)}.tmp");
+        File.WriteAllText(tempPath, JsonSerializer.Serialize(config, JsonOptions));
+
+        if (File.Exists(path))
+        {
+            File.Copy(tempPath, path, overwrite: true);
+            File.Delete(tempPath);
+            return;
+        }
+
+        File.Move(tempPath, path);
     }
 
     public static ShimConfig Clone(ShimConfig config)
@@ -50,7 +64,11 @@ internal static class ConfigStore
             PlayerProfileId = config.PlayerProfileId,
             CustomPlayerDisplayName = config.CustomPlayerDisplayName,
             CustomAppUserModelId = config.CustomAppUserModelId,
-            ShowStartupToast = config.ShowStartupToast
+            ShowStartupToast = config.ShowStartupToast,
+            LogViewerThemeId = config.LogViewerThemeId,
+            LogViewerBackgroundImagePath = config.LogViewerBackgroundImagePath,
+            LogViewerBackgroundOpacityPercent = config.LogViewerBackgroundOpacityPercent,
+            LogViewerBackgroundDimPercent = config.LogViewerBackgroundDimPercent
         };
     }
 }
