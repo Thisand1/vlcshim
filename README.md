@@ -21,8 +21,15 @@ Please read [README_BEFORE_CODE_OF_CONDUCT.md](./README_BEFORE_CODE_OF_CONDUCT) 
 2. If you changed the VLC Lua HTTP password from the default `ineedair`, run the shim with `--password your_password_here`.
 3. If VLC is using a different web port, run with `--port your_port_here` or `--ports 8080,your_port_here`.
 4. You can also set `VLC_HTTP_PASSWORD` instead of passing `--password`.
-5. The shim will keep retrying until VLC's HTTP interface responds.
-6. Use the tray icon menu to open `Config...` if you want to change the shown player identity or toggle the startup warning toast.
+5. You can also use the tray icon menu `Config...` window to save the VLC HTTP password and port list.
+6. The shim will keep retrying until VLC's HTTP interface responds.
+7. Use the tray icon menu to open `Config...` if you want to change the shown player identity or toggle the startup warning toast.
+
+## Build the installer
+
+1. Install NSIS.
+2. Run `installer\build-installer.bat v1.6.2-prerelease2`.
+3. The generated installer will be written to `installer\output`.
 
 ## Troubleshooting
 

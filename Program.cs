@@ -17,6 +17,15 @@ internal static partial class Program
         public Icon Icon { get; set; }
     }
 
+    private sealed class VlcConnectionSettings
+    {
+        public required string Password { get; init; }
+
+        public required int[] ExtraPorts { get; init; }
+
+        public required string PortsKey { get; init; }
+    }
+
     [STAThread]
     private static void Main(string[] args)
     {
@@ -85,7 +94,7 @@ internal static partial class Program
         {
             try
             {
-                await RunBridgeAsync(hostSession.Smtc, rainmeterBridgeController, args, cts.Token);
+                await RunBridgeAsync(hostSession.Smtc, rainmeterBridgeController, args, () => config, cts.Token);
             }
             catch (OperationCanceledException) when (cts.IsCancellationRequested)
             {
@@ -131,6 +140,10 @@ internal static partial class Program
             applyRuntimeConfig(previousConfig, updatedConfig);
 
             VerboseLogger.Info($"⚙️ Config saved. Player profile: {PlayerIdentityProfiles.GetDisplayName(updatedConfig)}");
+            if (DidConnectionSettingsChange(previousConfig, updatedConfig))
+            {
+                VerboseLogger.Info("⚙️ VLC HTTP connection settings changed. Reconnecting if needed.");
+            }
             if (DidIdentitySettingsChange(previousConfig, updatedConfig))
             {
                 VerboseLogger.Info("⚙️ Identity-related settings changed. Windows shell surfaces may refresh lazily.");
@@ -234,27 +247,23 @@ internal static partial class Program
         SystemMediaTransportControls smtc,
         RainmeterBridgeController rainmeterBridgeController,
         string[] args,
+        Func<ShimConfig> getConfig,
         CancellationToken ct)
     {
-        var password = ParsePassword(args) ?? Environment.GetEnvironmentVariable("VLC_HTTP_PASSWORD") ?? "ineedair";
-        var extraPorts = ParsePorts(args);
-        var portsToProbe = new List<int> { 8080, 4212 };
-        portsToProbe.AddRange(extraPorts.Where(p => p > 0));
-        VerboseLogger.Info($"🔎 Waiting for VLC HTTP on ports: {string.Join(", ", portsToProbe.Distinct())}");
-
         while (!ct.IsCancellationRequested)
         {
             VlcHttpClient? vlc = null;
             SmtcShimPublisher? publisher = null;
+            VlcConnectionSettings? connectionSettings = null;
 
             try
             {
-                vlc = await WaitForVlcAsync(password, extraPorts, ct);
+                (vlc, connectionSettings) = await WaitForVlcAsync(args, getConfig, ct);
                 VerboseLogger.Info($"🔌 Connected to VLC at {vlc.BaseUrl}");
                 publisher = new SmtcShimPublisher(smtc, vlc);
                 rainmeterBridgeController.SetTransport(vlc);
                 VerboseLogger.Info("📡 Polling VLC -> SMTC started.");
-                await PollLoopAsync(vlc, publisher, rainmeterBridgeController, ct);
+                await PollLoopAsync(vlc, publisher, rainmeterBridgeController, () => ResolveConnectionSettings(args, getConfig), connectionSettings, ct);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -280,15 +289,26 @@ internal static partial class Program
         }
     }
 
-    private static async Task<VlcHttpClient> WaitForVlcAsync(string password, int[] ports, CancellationToken ct)
+    private static async Task<(VlcHttpClient Client, VlcConnectionSettings Settings)> WaitForVlcAsync(
+        string[] args,
+        Func<ShimConfig> getConfig,
+        CancellationToken ct)
     {
+        VlcConnectionSettings? lastLoggedSettings = null;
+
         while (true)
         {
             ct.ThrowIfCancellationRequested();
+            VlcConnectionSettings settings = ResolveConnectionSettings(args, getConfig);
+            if (!HasSameConnectionSettings(lastLoggedSettings, settings))
+            {
+                VerboseLogger.Info($"🔎 Waiting for VLC HTTP on ports: {string.Join(", ", GetPortsToProbe(settings))}");
+                lastLoggedSettings = settings;
+            }
 
             try
             {
-                return await VlcHttpClient.CreateAsync(password, ports, ct);
+                return (await VlcHttpClient.CreateAsync(settings.Password, settings.ExtraPorts, ct), settings);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -305,12 +325,20 @@ internal static partial class Program
         VlcHttpClient vlc,
         SmtcShimPublisher publisher,
         RainmeterBridgeController rainmeterBridgeController,
+        Func<VlcConnectionSettings> getConnectionSettings,
+        VlcConnectionSettings connectedSettings,
         CancellationToken ct)
     {
         const int pollMs = 250;
 
         while (!ct.IsCancellationRequested)
         {
+            if (!HasSameConnectionSettings(connectedSettings, getConnectionSettings()))
+            {
+                VerboseLogger.Info("⚙️ VLC HTTP connection settings changed. Reconnecting now.");
+                return;
+            }
+
             var json = await vlc.GetStatusJsonAsync(ct);
             var status = StatusShimParser.Parse(json);
             publisher.Update(status);
@@ -402,5 +430,68 @@ internal static partial class Program
         return !string.Equals(previousConfig.PlayerProfileId, updatedConfig.PlayerProfileId, StringComparison.OrdinalIgnoreCase) ||
                !string.Equals(previousConfig.CustomPlayerDisplayName, updatedConfig.CustomPlayerDisplayName, StringComparison.Ordinal) ||
                !string.Equals(previousConfig.CustomAppUserModelId, updatedConfig.CustomAppUserModelId, StringComparison.Ordinal);
+    }
+
+    private static bool DidConnectionSettingsChange(ShimConfig previousConfig, ShimConfig updatedConfig)
+    {
+        return !string.Equals(previousConfig.VlcHttpPassword, updatedConfig.VlcHttpPassword, StringComparison.Ordinal) ||
+               !string.Equals(previousConfig.VlcHttpPorts, updatedConfig.VlcHttpPorts, StringComparison.Ordinal);
+    }
+
+    private static VlcConnectionSettings ResolveConnectionSettings(string[] args, Func<ShimConfig> getConfig)
+    {
+        ShimConfig config = getConfig();
+        string password =
+            ParsePassword(args) ??
+            Environment.GetEnvironmentVariable("VLC_HTTP_PASSWORD") ??
+            (string.IsNullOrWhiteSpace(config.VlcHttpPassword) ? null : config.VlcHttpPassword) ??
+            "ineedair";
+
+        int[] extraPorts = ParsePorts(args);
+        if (extraPorts.Length == 0)
+        {
+            extraPorts = ParsePortsValue(config.VlcHttpPorts);
+        }
+
+        return new VlcConnectionSettings
+        {
+            Password = password,
+            ExtraPorts = extraPorts,
+            PortsKey = string.Join(",", extraPorts)
+        };
+    }
+
+    private static bool HasSameConnectionSettings(VlcConnectionSettings? left, VlcConnectionSettings? right)
+    {
+        return left is not null &&
+               right is not null &&
+               string.Equals(left.Password, right.Password, StringComparison.Ordinal) &&
+               string.Equals(left.PortsKey, right.PortsKey, StringComparison.Ordinal);
+    }
+
+    private static IEnumerable<int> GetPortsToProbe(VlcConnectionSettings settings)
+    {
+        var ports = new List<int> { 8080, 4212 };
+        ports.AddRange(settings.ExtraPorts.Where(p => p > 0));
+        return ports.Distinct();
+    }
+
+    private static int[] ParsePortsValue(string? rawValue)
+    {
+        if (string.IsNullOrWhiteSpace(rawValue))
+        {
+            return Array.Empty<int>();
+        }
+
+        var ports = new List<int>();
+        foreach (string rawPort in rawValue.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (int.TryParse(rawPort, out var port) && IsValidPort(port) && !ports.Contains(port))
+            {
+                ports.Add(port);
+            }
+        }
+
+        return ports.ToArray();
     }
 }

@@ -64,6 +64,8 @@ internal static class ConfigStore
             PlayerProfileId = config.PlayerProfileId,
             CustomPlayerDisplayName = config.CustomPlayerDisplayName,
             CustomAppUserModelId = config.CustomAppUserModelId,
+            VlcHttpPassword = config.VlcHttpPassword,
+            VlcHttpPorts = config.VlcHttpPorts,
             ShowStartupToast = config.ShowStartupToast,
             LogViewerThemeId = config.LogViewerThemeId,
             LogViewerBackgroundImagePath = config.LogViewerBackgroundImagePath,
