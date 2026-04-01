@@ -87,7 +87,7 @@ internal static partial class Program
             {
                 await RunBridgeAsync(hostSession.Smtc, rainmeterBridgeController, args, cts.Token);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cts.IsCancellationRequested)
             {
             }
             catch (Exception ex)
@@ -256,13 +256,13 @@ internal static partial class Program
                 VerboseLogger.Info("📡 Polling VLC -> SMTC started.");
                 await PollLoopAsync(vlc, publisher, rainmeterBridgeController, ct);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 throw;
             }
             catch when (!ct.IsCancellationRequested)
             {
-                VerboseLogger.Info("⚠️ VLC connection unavailable. Retrying in 1 second.");
+                VerboseLogger.Info("⚠️ VLC connection lost. Re-probing in 1 second.");
                 await Task.Delay(1000, ct);
             }
             finally
@@ -290,7 +290,7 @@ internal static partial class Program
             {
                 return await VlcHttpClient.CreateAsync(password, ports, ct);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 throw;
             }
