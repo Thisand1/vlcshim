@@ -1,6 +1,6 @@
 namespace VlcShimDebugFr;
 
-internal sealed record PlayerIdentityProfile(
+public sealed record PlayerIdentityProfile(
     string Id,
     string Label,
     string DisplayName,

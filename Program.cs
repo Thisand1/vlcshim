@@ -42,7 +42,12 @@ internal static partial class Program
         var logPath = GetLogPath();
 
         VerboseLogger.Init(logPath);
-        VerboseLogger.StartTail(logPath, LogViewerThemes.Get(config.LogViewerThemeId), config);
+        VerboseLogger.StartTail(logPath, LogViewerThemes.Get(config.LogViewerThemeId), config, () =>
+        {
+            VerboseLogger.Info("🪟 Log viewer closed. Shutting down shim.");
+            try { cts.Cancel(); } catch { }
+            ctx.ExitThread();
+        });
         VerboseLogger.Info("🚀 VLC shim booting up.");
         VerboseLogger.Info($"🪪 Shell identity {(identity.Applied ? "applied" : "fallback failed")}: {identity.DisplayName} [{identity.AppUserModelId}]");
         VerboseLogger.Info("🎚️ SMTC host session ready.");

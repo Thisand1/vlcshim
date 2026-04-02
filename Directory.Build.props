@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <DefaultItemExcludes>$(DefaultItemExcludes);pkgs\**;tmp-rainmeter-src\**;installer\publish\**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>

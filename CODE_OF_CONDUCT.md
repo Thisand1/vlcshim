@@ -52,4 +52,4 @@ All enforcement is meant to keep this project healthy and usable.
 
 Thank you for building with us and respecting the rules.
 
-## Also, if you didn't read "README_BEFORE_COC" please read it, so you don't flag this repository without a real reason or having the right context
+## Also, if you didn't read "README_BEFORE_CODE_OF_CONDUCT" please read it, so you don't flag this repository without a real reason or having the right context

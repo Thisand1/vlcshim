@@ -1,7 +1,12 @@
 /.obsidian
+/pkgs
 /bin
 /obj
+/src
+**/bin/
+**/obj/
 /raw-doc-smtc.txt
 /tmp-rainmeter-src
 /installer/output
 /installer/publish
+/artifacts

@@ -9,8 +9,10 @@ internal static class VerboseLogger
     private static readonly object Sync = new();
     private static StreamWriter? _writer;
     private static Thread? _viewerThread;
-    private static LogViewerForm? _viewerForm;
+    private static Form? _viewerForm;
+    private static Action? _viewerClosedHandler;
     private static bool _initialized;
+    private static bool _shutdownRequested;
 
     public static void Init(string logPath)
     {
@@ -42,7 +44,7 @@ internal static class VerboseLogger
         }
     }
 
-    public static void StartTail(string logPath, LogViewerTheme theme, ShimConfig config)
+    public static void StartTail(string logPath, LogViewerTheme theme, ShimConfig config, Action onViewerClosed)
     {
         lock (Sync)
         {
@@ -51,22 +53,49 @@ internal static class VerboseLogger
                 return;
             }
 
+            _shutdownRequested = false;
+            _viewerClosedHandler = onViewerClosed;
             _viewerThread = new Thread(() =>
             {
-                using var form = new LogViewerForm(logPath, theme, config);
+                bool shouldRequestAppExit = false;
+                Form? form = null;
 
-                lock (Sync)
+                try
                 {
-                    _viewerForm = form;
+                    form = CreateViewerForm(logPath, theme, config);
+                    if (form is null)
+                    {
+                        return;
+                    }
+
+                    lock (Sync)
+                    {
+                        _viewerForm = form;
+                    }
+
+                    Application.Run(form);
+                }
+                finally
+                {
+                    lock (Sync)
+                    {
+                        if (ReferenceEquals(_viewerForm, form))
+                        {
+                            _viewerForm = null;
+                        }
+
+                        shouldRequestAppExit = form is not null && !_shutdownRequested;
+                    }
                 }
 
-                Application.Run(form);
-
-                lock (Sync)
+                if (shouldRequestAppExit)
                 {
-                    if (ReferenceEquals(_viewerForm, form))
+                    try
                     {
-                        _viewerForm = null;
+                        _viewerClosedHandler?.Invoke();
+                    }
+                    catch
+                    {
                     }
                 }
             })
@@ -102,7 +131,15 @@ internal static class VerboseLogger
     {
         lock (Sync)
         {
-            _viewerForm?.ApplyConfig(theme, config);
+            switch (_viewerForm)
+            {
+                case LogViewerForm viewer:
+                    viewer.ApplyConfig(theme, config);
+                    break;
+                case FallbackLogViewerForm fallbackViewer:
+                    fallbackViewer.ApplyConfig(theme);
+                    break;
+            }
         }
     }
 
@@ -116,29 +153,69 @@ internal static class VerboseLogger
         string line = $"{DateTimeOffset.Now:O} [{level}] [{source}] [T{Environment.CurrentManagedThreadId}] {message}";
         _writer.WriteLine(line);
         Debug.WriteLine(line);
-        _viewerForm?.AppendLine(line);
+        switch (_viewerForm)
+        {
+            case LogViewerForm viewer:
+                viewer.AppendLine(line);
+                break;
+            case FallbackLogViewerForm fallbackViewer:
+                fallbackViewer.AppendLine(line);
+                break;
+        }
     }
 
     public static void Shutdown()
     {
         Thread? viewerThread;
-        LogViewerForm? viewerForm;
+        Form? viewerForm;
 
         lock (Sync)
         {
+            _shutdownRequested = true;
             WriteInternal("logger", "INFO", "Logging shutdown");
             _writer?.Dispose();
             _writer = null;
             viewerThread = _viewerThread;
             viewerForm = _viewerForm;
             _viewerThread = null;
+            _viewerClosedHandler = null;
         }
 
-        viewerForm?.RequestClose();
+        switch (viewerForm)
+        {
+            case LogViewerForm viewer:
+                viewer.RequestClose();
+                break;
+            case FallbackLogViewerForm fallbackViewer:
+                fallbackViewer.RequestClose();
+                break;
+        }
 
         if (viewerThread is not null && viewerThread.IsAlive)
         {
             viewerThread.Join(1500);
+        }
+    }
+
+    private static Form? CreateViewerForm(string logPath, LogViewerTheme theme, ShimConfig config)
+    {
+        try
+        {
+            return new LogViewerForm(logPath, theme, config);
+        }
+        catch (Exception ex)
+        {
+            Error("🪟 Vortice log viewer unavailable. Falling back to the basic log window.", ex);
+
+            try
+            {
+                return new FallbackLogViewerForm(logPath, theme);
+            }
+            catch (Exception fallbackEx)
+            {
+                Error("🪟 Failed to open the fallback log window. Continuing without a viewer.", fallbackEx);
+                return null;
+            }
         }
     }
 }

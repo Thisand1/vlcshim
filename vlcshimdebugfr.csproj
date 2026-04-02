@@ -13,11 +13,16 @@
     <Product>VLC</Product>
     <Description>VLC bridge</Description>
     <Company>VideoLAN</Company>
+    <DefaultItemExcludes>$(DefaultItemExcludes);src\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Windows.CsWinRT" Version="2.2.0" />
-    <PackageReference Include="Vortice.Direct2D1" Version="3.8.2" />
+    <PackageReference Include="Microsoft.Windows.CsWinRT" />
+    <PackageReference Include="SharpGen.Runtime" />
+    <PackageReference Include="SharpGen.Runtime.COM" />
+    <PackageReference Include="Vortice.Direct2D1" />
+    <PackageReference Include="Vortice.DirectX" />
+    <PackageReference Include="Vortice.DXGI" />
   </ItemGroup>
 
   <ItemGroup>

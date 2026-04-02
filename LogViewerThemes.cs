@@ -1,6 +1,6 @@
 namespace VlcShimDebugFr;
 
-internal sealed record LogViewerTheme(
+public sealed record LogViewerTheme(
     string Id,
     string Label,
     int BackgroundArgb,

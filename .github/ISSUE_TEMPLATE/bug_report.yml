@@ -1,0 +1,95 @@
+name: Bug report
+description: Report a reproducible problem with the VLC -> SMTC shim
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before submitting:
+
+        - Read `README.md`, `CONTRIBUTING.md`, and `SECURITY.md`
+        - Do not use this form for unpatched security issues
+        - Include exact reproduction steps and relevant log lines
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the bug clearly and directly.
+      placeholder: The shim stops reconnecting after VLC is closed and reopened.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: The shim should keep probing VLC and reconnect automatically.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Provide exact steps, in order.
+      placeholder: |
+        1. Start VLC with Web enabled
+        2. Launch the shim
+        3. Play a track
+        4. Close VLC
+        5. Reopen VLC
+    validations:
+      required: true
+
+  - type: input
+    id: windows_version
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2 / build 26100.x
+    validations:
+      required: true
+
+  - type: input
+    id: vlc_version
+    attributes:
+      label: VLC version
+      placeholder: VLC 3.0.x
+
+  - type: dropdown
+    id: vlc_web_enabled
+    attributes:
+      label: Is VLC Web enabled?
+      options:
+        - "Yes"
+        - "No"
+        - "I am not sure"
+    validations:
+      required: true
+
+  - type: input
+    id: connection_settings
+    attributes:
+      label: VLC HTTP port/password setup
+      description: Mention the port path used and whether the password came from CLI, env var, or config.
+      placeholder: Web enabled on 8080, password set in Config..., no CLI override
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log lines
+      description: Paste the most relevant lines from `%LOCALAPPDATA%\vlcshimdebugfr\logs\latest.log`.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Screenshots, related skins/tools, or anything else useful.
+

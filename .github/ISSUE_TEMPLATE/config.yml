@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security policy
+    url: https://github.com/Thisand1/vlcshim/blob/pre-release/SECURITY.md
+    about: Read this before reporting a security issue. Do not open a public issue for an unpatched vulnerability.
+  - name: Contributing guide
+    url: https://github.com/Thisand1/vlcshim/blob/pre-release/CONTRIBUTING.md
+    about: Read the contribution rules, scope, and testing expectations before opening a pull request.
+  - name: License
+    url: https://github.com/Thisand1/vlcshim/blob/pre-release/LICENSE
+    about: Read the AGPLv3 license that applies to this project.

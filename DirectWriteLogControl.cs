@@ -682,9 +682,10 @@ internal sealed class DirectWriteLogControl : ScrollableControl
         {
             _renderTarget.DrawBitmap(
                 _backgroundBitmap,
+                GetCoverRect(_backgroundBitmap.PixelSize.Width, _backgroundBitmap.PixelSize.Height),
                 _backgroundOpacity,
                 BitmapInterpolationMode.Linear,
-                GetCoverRect(_backgroundBitmap.PixelSize.Width, _backgroundBitmap.PixelSize.Height));
+                new Rect(0, 0, _backgroundBitmap.PixelSize.Width, _backgroundBitmap.PixelSize.Height));
         }
 
         if (_backgroundDimBrush is not null && _backgroundDimOpacity > 0.0f)

@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-set "ROOT=%~dp0.."
+for %%I in ("%~dp0..") do set "ROOT=%%~fI"
 set "INSTALLER_VERSION=%~1"
 if "%INSTALLER_VERSION%"=="" set "INSTALLER_VERSION=dev"
 
