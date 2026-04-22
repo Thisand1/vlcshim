@@ -12,6 +12,8 @@ internal sealed class ShimConfig
 
     public string VlcHttpPorts { get; set; } = string.Empty;
 
+    public bool AllowCompatibilityControlCommands { get; set; } = false;
+
     public bool ShowStartupToast { get; set; } = true;
 
     public string LogViewerThemeId { get; set; } = LogViewerThemes.Default.Id;

@@ -21,3 +21,4 @@ internal sealed class SmtcHostSession : IDisposable
         _mediaPlayer.Dispose();
     }
 }
+// theairisfire

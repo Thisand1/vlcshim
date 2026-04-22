@@ -17,9 +17,9 @@ SetCompressor /SOLID lzma
 !define OUT_DIR "."
 !endif
 
-!define APP_NAME "VLC Shim"
+!define APP_NAME "vlcshim"
 !define COMPANY_NAME "IsThisThisandFr"
-!define INSTALL_DIR "$ProgramFiles64\VLC Shim"
+!define INSTALL_DIR "$ProgramFiles64\vlcshim"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\VLCShim"
 
 Name "${APP_NAME}"
@@ -44,7 +44,7 @@ LicenseForceSelection checkbox
 !define MUI_PAGE_HEADER_SUBTEXT "Review the community rules before installing or interacting with the project."
 !define MUI_LICENSEPAGE_TEXT_TOP "You must read the Code of Conduct before continuing."
 !define MUI_LICENSEPAGE_CHECKBOX "I have read the Code of Conduct"
-!insertmacro MUI_PAGE_LICENSE "..\CODEOFCONDUCT.md"
+!insertmacro MUI_PAGE_LICENSE "..\CODE_OF_CONDUCT.md"
 
 !define MUI_PAGE_HEADER_TEXT "Read the Contributing Guide"
 !define MUI_PAGE_HEADER_SUBTEXT "Review the repository rules and contribution expectations."
@@ -74,16 +74,16 @@ Section "Install"
   File /r "${PUBLISH_DIR}\*.*"
   SetOutPath "$INSTDIR\docs"
   File "..\README.md"
-  File "..\CODEOFCONDUCT.md"
+  File "..\CODE_OF_CONDUCT.md"
   File "..\CONTRIBUTING.md"
   File "..\LICENSE"
   SetOutPath "$INSTDIR"
 
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
-  CreateDirectory "$SMPROGRAMS\VLC Shim"
-  CreateShortcut "$SMPROGRAMS\VLC Shim\VLC Shim.lnk" "$INSTDIR\vlcshimdebugfr.exe" "" "$INSTDIR\assets\vlc.ico"
-  CreateShortcut "$SMPROGRAMS\VLC Shim\Uninstall VLC Shim.lnk" "$INSTDIR\Uninstall.exe"
+  CreateDirectory "$SMPROGRAMS\vlcshim"
+  CreateShortcut "$SMPROGRAMS\vlcshim\vlcshim.lnk" "$INSTDIR\vlcshimdebugfr.exe" "" "$INSTDIR\assets\vlc.ico"
+  CreateShortcut "$SMPROGRAMS\vlcshim\Uninstall vlcshim.lnk" "$INSTDIR\Uninstall.exe"
 
   WriteRegStr HKLM "${UNINSTALL_KEY}" "DisplayName" "${APP_NAME}"
   WriteRegStr HKLM "${UNINSTALL_KEY}" "DisplayVersion" "${VERSION}"
@@ -98,10 +98,10 @@ SectionEnd
 
 Section "Uninstall"
   SetRegView 64
-  Delete "$DESKTOP\VLC Shim.lnk"
-  Delete "$SMPROGRAMS\VLC Shim\VLC Shim.lnk"
-  Delete "$SMPROGRAMS\VLC Shim\Uninstall VLC Shim.lnk"
-  RMDir "$SMPROGRAMS\VLC Shim"
+  Delete "$DESKTOP\vlcshim.lnk"
+  Delete "$SMPROGRAMS\vlcshim\vlcshim.lnk"
+  Delete "$SMPROGRAMS\vlcshim\Uninstall vlcshim.lnk"
+  RMDir "$SMPROGRAMS\vlcshim"
   RMDir /r "$INSTDIR"
   DeleteRegKey HKLM "${UNINSTALL_KEY}"
 SectionEnd

@@ -1,0 +1,281 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VlcShimDebugFr.AvaloniaUi.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignWidth="1260"
+             d:DesignHeight="820"
+             x:Class="VlcShimDebugFr.AvaloniaUi.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel"
+             Background="{Binding Theme.WindowBackgroundBrush}">
+
+    <UserControl.Styles>
+        <Style Selector="Border.card">
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="22" />
+        </Style>
+        <Style Selector="Border.badge">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="12,6" />
+        </Style>
+        <Style Selector="TextBlock.eyebrow">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBlock.heroTitle">
+            <Setter Property="FontSize" Value="30" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBlock.sectionTitle">
+            <Setter Property="FontSize" Value="20" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBlock.fieldLabel">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="14" />
+        </Style>
+        <Style Selector="TextBlock.previewName">
+            <Setter Property="FontSize" Value="24" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBlock.mono">
+            <Setter Property="FontFamily" Value="avares://Avalonia.Fonts.Inter#Inter" />
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Padding" Value="20,12" />
+            <Setter Property="MinWidth" Value="140" />
+        </Style>
+        <Style Selector="Button.ghost">
+            <Setter Property="Padding" Value="18,12" />
+            <Setter Property="MinWidth" Value="140" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid Margin="24" ColumnDefinitions="320,*" ColumnSpacing="24">
+        <StackPanel Grid.Column="0" Spacing="18">
+            <Border Classes="card"
+                    Background="{Binding Theme.HeroBrush}"
+                    BorderBrush="{Binding Theme.HeroBorderBrush}">
+                <StackPanel Spacing="14">
+                    <TextBlock Classes="eyebrow" Text="Integrated shell" Foreground="{Binding Theme.EyebrowBrush}" />
+                    <TextBlock Classes="heroTitle"
+                               Text="Avalonia settings inside vlcshim"
+                               TextWrapping="Wrap"
+                               Foreground="{Binding Theme.TitleBrush}" />
+                    <TextBlock Classes="muted"
+                               Text="This is now part of the main app instead of a separate v2 executable, so ASR only has the primary shim process to care about."
+                               TextWrapping="Wrap"
+                               Foreground="{Binding Theme.MutedBrush}" />
+                    <Border Classes="badge" Background="{Binding Theme.BadgeBrush}">
+                        <TextBlock Text="{Binding StatusMessage}" Foreground="{Binding Theme.HighlightBrush}" TextWrapping="Wrap" />
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card"
+                    Background="{Binding Theme.CardBrush}"
+                    BorderBrush="{Binding Theme.CardBorderBrush}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="eyebrow" Text="Identity preview" Foreground="{Binding Theme.EyebrowBrush}" />
+                    <TextBlock Classes="previewName" Text="{Binding PreviewDisplayName}" Foreground="{Binding Theme.TitleBrush}" />
+                    <TextBlock Classes="mono" Text="{Binding PreviewAppUserModelId}" TextWrapping="Wrap" Foreground="{Binding Theme.MonoBrush}" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card"
+                    Background="{Binding Theme.CardBrush}"
+                    BorderBrush="{Binding Theme.CardBorderBrush}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="eyebrow" Text="Runtime snapshot" Foreground="{Binding Theme.EyebrowBrush}" />
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="8">
+                        <TextBlock Classes="muted" Text="Ports" Foreground="{Binding Theme.MutedBrush}" />
+                        <TextBlock Grid.Column="1" Text="{Binding PreviewPortsLabel}" Foreground="{Binding Theme.HighlightBrush}" />
+                        <TextBlock Grid.Row="1" Classes="muted" Text="Theme" Foreground="{Binding Theme.MutedBrush}" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PreviewThemeLabel}" Foreground="{Binding Theme.HighlightBrush}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="18">
+                <Border Classes="card"
+                        Background="{Binding Theme.CardBrush}"
+                        BorderBrush="{Binding Theme.CardBorderBrush}">
+                    <StackPanel Spacing="18">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                            <StackPanel Spacing="4">
+                                <TextBlock Classes="sectionTitle" Text="Player identity" Foreground="{Binding Theme.TitleBrush}" />
+                                <TextBlock Classes="muted"
+                                           Text="Choose how the shim introduces itself to shell surfaces and compatibility layers."
+                                           Foreground="{Binding Theme.MutedBrush}" />
+                            </StackPanel>
+                            <Border Classes="badge" Background="{Binding Theme.BadgeBrush}">
+                                <TextBlock Text="{Binding PreviewDisplayName}" Foreground="{Binding Theme.HighlightBrush}" />
+                            </Border>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="220,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="18" RowSpacing="14">
+                            <TextBlock Classes="fieldLabel" Text="Profile" Foreground="{Binding Theme.FieldLabelBrush}" />
+                            <ComboBox Grid.Column="1"
+                                      Background="{Binding Theme.InputBackgroundBrush}"
+                                      Foreground="{Binding Theme.HighlightBrush}"
+                                      BorderBrush="{Binding Theme.InputBorderBrush}"
+                                      ItemsSource="{Binding PlayerProfiles}"
+                                      SelectedItem="{Binding SelectedPlayerProfile}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Label}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+
+                            <TextBlock Grid.Row="1" Classes="fieldLabel" Text="Custom display name" Foreground="{Binding Theme.FieldLabelBrush}" />
+                            <TextBox Grid.Row="1"
+                                     Grid.Column="1"
+                                     Background="{Binding Theme.InputBackgroundBrush}"
+                                     Foreground="{Binding Theme.HighlightBrush}"
+                                     BorderBrush="{Binding Theme.InputBorderBrush}"
+                                     Text="{Binding CustomPlayerDisplayName}"
+                                     IsEnabled="{Binding IsCustomProfile}" />
+
+                            <TextBlock Grid.Row="2" Classes="fieldLabel" Text="Custom AppUserModelID" Foreground="{Binding Theme.FieldLabelBrush}" />
+                            <TextBox Grid.Row="2"
+                                     Grid.Column="1"
+                                     Background="{Binding Theme.InputBackgroundBrush}"
+                                     Foreground="{Binding Theme.HighlightBrush}"
+                                     BorderBrush="{Binding Theme.InputBorderBrush}"
+                                     Text="{Binding CustomAppUserModelId}"
+                                     IsEnabled="{Binding IsCustomProfile}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="card"
+                        Background="{Binding Theme.CardBrush}"
+                        BorderBrush="{Binding Theme.CardBorderBrush}">
+                    <StackPanel Spacing="18">
+                        <TextBlock Classes="sectionTitle" Text="VLC HTTP" Foreground="{Binding Theme.TitleBrush}" />
+                        <TextBlock Classes="muted"
+                                   Text="These map directly to the current bridge config. CLI flags still override them at runtime."
+                                   Foreground="{Binding Theme.MutedBrush}" />
+
+                        <Grid ColumnDefinitions="220,*" RowDefinitions="Auto,Auto" ColumnSpacing="18" RowSpacing="14">
+                            <TextBlock Classes="fieldLabel" Text="Password" Foreground="{Binding Theme.FieldLabelBrush}" />
+                            <TextBox Grid.Column="1"
+                                     Background="{Binding Theme.InputBackgroundBrush}"
+                                     Foreground="{Binding Theme.HighlightBrush}"
+                                     BorderBrush="{Binding Theme.InputBorderBrush}"
+                                     Text="{Binding VlcHttpPassword}" />
+
+                            <TextBlock Grid.Row="1" Classes="fieldLabel" Text="Ports" Foreground="{Binding Theme.FieldLabelBrush}" />
+                            <TextBox Grid.Row="1"
+                                     Grid.Column="1"
+                                     Background="{Binding Theme.InputBackgroundBrush}"
+                                     Foreground="{Binding Theme.HighlightBrush}"
+                                     BorderBrush="{Binding Theme.InputBorderBrush}"
+                                     Text="{Binding VlcHttpPorts}"
+                                     Watermark="8080,4212" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="card"
+                        Background="{Binding Theme.CardBrush}"
+                        BorderBrush="{Binding Theme.CardBorderBrush}">
+                    <StackPanel Spacing="18">
+                        <TextBlock Classes="sectionTitle" Text="Log viewer mood" Foreground="{Binding Theme.TitleBrush}" />
+                        <TextBlock Classes="muted"
+                                   Text="This keeps the existing viewer settings model alive while the surrounding chrome moves into Avalonia."
+                                   Foreground="{Binding Theme.MutedBrush}" />
+
+                        <Grid ColumnDefinitions="220,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="18" RowSpacing="14">
+                            <TextBlock Classes="fieldLabel" Text="Theme" Foreground="{Binding Theme.FieldLabelBrush}" />
+                            <ComboBox Grid.Column="1"
+                                      Background="{Binding Theme.InputBackgroundBrush}"
+                                      Foreground="{Binding Theme.HighlightBrush}"
+                                      BorderBrush="{Binding Theme.InputBorderBrush}"
+                                      ItemsSource="{Binding LogThemes}"
+                                      SelectedItem="{Binding SelectedLogTheme}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Label}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+
+                            <TextBlock Grid.Row="1" Classes="fieldLabel" Text="Background image" Foreground="{Binding Theme.FieldLabelBrush}" />
+                            <TextBox Grid.Row="1"
+                                     Grid.Column="1"
+                                     Background="{Binding Theme.InputBackgroundBrush}"
+                                     Foreground="{Binding Theme.HighlightBrush}"
+                                     BorderBrush="{Binding Theme.InputBorderBrush}"
+                                     Text="{Binding LogViewerBackgroundImagePath}"
+                                     Watermark="Path to a background image" />
+
+                            <TextBlock Grid.Row="2" Classes="fieldLabel" Text="Image opacity" Foreground="{Binding Theme.FieldLabelBrush}" />
+                            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="14">
+                                <Slider Width="280"
+                                        Minimum="0"
+                                        Maximum="100"
+                                        Value="{Binding LogViewerBackgroundOpacityPercent}" />
+                                <TextBlock VerticalAlignment="Center"
+                                           Foreground="{Binding Theme.HighlightBrush}"
+                                           Text="{Binding LogViewerBackgroundOpacityPercent}" />
+                            </StackPanel>
+
+                            <TextBlock Grid.Row="3" Classes="fieldLabel" Text="Backdrop dim" Foreground="{Binding Theme.FieldLabelBrush}" />
+                            <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="14">
+                                <Slider Width="280"
+                                        Minimum="0"
+                                        Maximum="100"
+                                        Value="{Binding LogViewerBackgroundDimPercent}" />
+                                <TextBlock VerticalAlignment="Center"
+                                           Foreground="{Binding Theme.HighlightBrush}"
+                                           Text="{Binding LogViewerBackgroundDimPercent}" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="card"
+                        Background="{Binding Theme.CardBrush}"
+                        BorderBrush="{Binding Theme.CardBorderBrush}">
+                    <StackPanel Spacing="18">
+                        <TextBlock Classes="sectionTitle" Text="Startup behavior" Foreground="{Binding Theme.TitleBrush}" />
+                        <CheckBox IsChecked="{Binding ShowStartupToast}"
+                                  Foreground="{Binding Theme.HighlightBrush}"
+                                  Content="Show the startup warning toast" />
+                        <CheckBox IsChecked="{Binding AllowCompatibilityControlCommands}"
+                                  Foreground="{Binding Theme.HighlightBrush}"
+                                  ToolTip.Tip="Allows local compatibility clients to send play, pause, seek, and volume commands."
+                                  Content="Allow AIMP/Rainmeter playback controls" />
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
+                            <Button Classes="ghost"
+                                    Background="{Binding Theme.GhostButtonBrush}"
+                                    Foreground="{Binding Theme.GhostButtonForegroundBrush}"
+                                    Command="{Binding ResetCommand}"
+                                    Content="Reset" />
+                            <Button Classes="ghost"
+                                    Background="{Binding Theme.GhostButtonBrush}"
+                                    Foreground="{Binding Theme.GhostButtonForegroundBrush}"
+                                    Command="{Binding CancelCommand}"
+                                    Content="Cancel" />
+                            <Button Classes="primary"
+                                    Background="{Binding Theme.PrimaryButtonBrush}"
+                                    Foreground="{Binding Theme.PrimaryButtonForegroundBrush}"
+                                    Command="{Binding SaveCommand}"
+                                    Content="Save config" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

@@ -1,9 +1,14 @@
 using System.Text.Json;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace VlcShimDebugFr;
 
 internal static class ConfigStore
 {
+    private const string ProtectedPasswordPrefix = "dpapi:";
+    private static readonly byte[] PasswordEntropy = Encoding.UTF8.GetBytes("vlcshimdebugfr:vlc-http-password:v1");
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -29,8 +34,9 @@ internal static class ConfigStore
                 return new ShimConfig();
             }
 
-            var config = JsonSerializer.Deserialize<ShimConfig>(File.ReadAllText(path), JsonOptions);
-            return config ?? new ShimConfig();
+            var config = JsonSerializer.Deserialize<ShimConfig>(File.ReadAllText(path), JsonOptions) ?? new ShimConfig();
+            config.VlcHttpPassword = UnprotectPassword(config.VlcHttpPassword);
+            return config;
         }
         catch
         {
@@ -45,7 +51,9 @@ internal static class ConfigStore
         Directory.CreateDirectory(directory);
 
         string tempPath = Path.Combine(directory, $"{Path.GetFileName(path)}.tmp");
-        File.WriteAllText(tempPath, JsonSerializer.Serialize(config, JsonOptions));
+        var persisted = Clone(config);
+        persisted.VlcHttpPassword = ProtectPassword(config.VlcHttpPassword);
+        File.WriteAllText(tempPath, JsonSerializer.Serialize(persisted, JsonOptions));
 
         if (File.Exists(path))
         {
@@ -66,11 +74,49 @@ internal static class ConfigStore
             CustomAppUserModelId = config.CustomAppUserModelId,
             VlcHttpPassword = config.VlcHttpPassword,
             VlcHttpPorts = config.VlcHttpPorts,
+            AllowCompatibilityControlCommands = config.AllowCompatibilityControlCommands,
             ShowStartupToast = config.ShowStartupToast,
             LogViewerThemeId = config.LogViewerThemeId,
             LogViewerBackgroundImagePath = config.LogViewerBackgroundImagePath,
             LogViewerBackgroundOpacityPercent = config.LogViewerBackgroundOpacityPercent,
             LogViewerBackgroundDimPercent = config.LogViewerBackgroundDimPercent
         };
+    }
+
+    private static string ProtectPassword(string? password)
+    {
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            return string.Empty;
+        }
+
+        byte[] bytes = Encoding.UTF8.GetBytes(password);
+        byte[] protectedBytes = ProtectedData.Protect(bytes, PasswordEntropy, DataProtectionScope.CurrentUser);
+        return ProtectedPasswordPrefix + Convert.ToBase64String(protectedBytes);
+    }
+
+    private static string UnprotectPassword(string? persisted)
+    {
+        if (string.IsNullOrWhiteSpace(persisted))
+        {
+            return string.Empty;
+        }
+
+        if (!persisted.StartsWith(ProtectedPasswordPrefix, StringComparison.Ordinal))
+        {
+            return persisted;
+        }
+
+        string payload = persisted[ProtectedPasswordPrefix.Length..];
+        try
+        {
+            byte[] protectedBytes = Convert.FromBase64String(payload);
+            byte[] plainBytes = ProtectedData.Unprotect(protectedBytes, PasswordEntropy, DataProtectionScope.CurrentUser);
+            return Encoding.UTF8.GetString(plainBytes);
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 }

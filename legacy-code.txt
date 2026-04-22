@@ -1,3 +1,74 @@
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Linq;
+using System.Net.Http;
+using System.Threading.Tasks;
+using VlcShimDebugFr;
+
+internal class Program
+{
+    private const string WaitingForVlcMessage = "Waiting for VLC to start... open VLC and the status will populate shortly.";
+
+    static async Task Main()
+    {
+        var vlc = new VlcHttpsClient("http://127.0.0.1:8080", "ineedair");
+        var shim = new ShimInput(vlc);
+
+        Console.CursorVisible = false;
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.SetCursorPosition(0, 0);
+        Console.Write("Initializing shim...".PadRight(Console.WindowWidth - 1));
+        NotificationToast.ShowVolumeWarning();
+
+        StatusShim? last = null;
+        bool waitingForVlc = false;
+
+        while (true)
+        {
+            StatusShim status;
+
+            try
+            {
+                status = await shim.GetStatusAsync();
+                waitingForVlc = false;
+            }
+            catch (Exception ex) when (ex is HttpRequestException || ex is TaskCanceledException)
+            {
+                if (!waitingForVlc)
+                {
+                    Console.SetCursorPosition(0, 0);
+                    Console.Write(WaitingForVlcMessage.PadRight(Console.WindowWidth - 1));
+                    waitingForVlc = true;
+                }
+
+                await Task.Delay(500);
+                continue;
+            }
+
+            if (last is null ||
+                status.State != last.State ||
+                status.Title != last.Title ||
+                status.Time != last.Time ||
+                status.Length != last.Length ||
+                status.Volume != last.Volume)
+            {
+                int leftSeconds = status.Length - status.Time;
+
+                string songName = string.IsNullOrWhiteSpace(status.Filename) ? status.Title : status.Filename;
+                string line =
+                    $"{status.State} | {songName} | {status.Time}/{status.Length} | left {leftSeconds}s | Vol {status.Volume}";
+
+                Console.SetCursorPosition(0, 0);
+                Console.Write(line.PadRight(Console.WindowWidth - 1));
+            }
+
+            last = status;
+
+            await Task.Delay(30);
+        }
+    }
+}
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Drawing.Text;

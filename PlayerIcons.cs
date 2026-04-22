@@ -27,7 +27,7 @@ internal static class PlayerIcons
         }
         catch
         {
-        }
+        } // /fill ~ ~ minecraft:water
 
         return (Icon)SystemIcons.Application.Clone();
     }

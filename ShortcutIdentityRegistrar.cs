@@ -4,7 +4,7 @@ namespace VlcShimDebugFr;
 
 internal static class ShortcutIdentityRegistrar
 {
-    private const string ShortcutDirectoryName = "VLC Shim";
+    private const string ShortcutDirectoryName = "vlcshim";
 
     private static readonly PropertyKey AppUserModelIdKey = new(
         new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"),

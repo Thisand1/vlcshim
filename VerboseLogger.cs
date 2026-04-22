@@ -7,8 +7,9 @@ namespace VlcShimDebugFr;
 internal static class VerboseLogger
 {
     private static readonly object Sync = new();
+    private static readonly Queue<string> RecentLines = new();
+    private const int MaxRecentLines = 200;
     private static StreamWriter? _writer;
-    private static Thread? _viewerThread;
     private static Form? _viewerForm;
     private static Action? _viewerClosedHandler;
     private static bool _initialized;
@@ -48,63 +49,64 @@ internal static class VerboseLogger
     {
         lock (Sync)
         {
-            if (_viewerThread is { IsAlive: true })
+            if (_viewerForm is not null && !_viewerForm.IsDisposed)
             {
                 return;
             }
 
             _shutdownRequested = false;
             _viewerClosedHandler = onViewerClosed;
-            _viewerThread = new Thread(() =>
+            string[] snapshot = RecentLines.ToArray();
+            Form? form = CreateViewerForm(logPath, theme, config, snapshot);
+            if (form is null)
             {
-                bool shouldRequestAppExit = false;
-                Form? form = null;
+                return;
+            }
+
+            _viewerForm = form;
+            string[] latestSnapshot = RecentLines.ToArray();
+
+            switch (form)
+            {
+                case LogViewerForm viewer:
+                    viewer.LoadSnapshot(latestSnapshot);
+                    break;
+                case FallbackLogViewerForm fallbackViewer:
+                    fallbackViewer.LoadSnapshot(latestSnapshot);
+                    break;
+            }
+
+            form.FormClosed += (_, _) =>
+            {
+                bool shouldRequestAppExit;
+                Action? closedHandler;
+
+                lock (Sync)
+                {
+                    if (ReferenceEquals(_viewerForm, form))
+                    {
+                        _viewerForm = null;
+                    }
+
+                    shouldRequestAppExit = !_shutdownRequested;
+                    closedHandler = _viewerClosedHandler;
+                }
+
+                if (!shouldRequestAppExit)
+                {
+                    return;
+                }
 
                 try
                 {
-                    form = CreateViewerForm(logPath, theme, config);
-                    if (form is null)
-                    {
-                        return;
-                    }
-
-                    lock (Sync)
-                    {
-                        _viewerForm = form;
-                    }
-
-                    Application.Run(form);
+                    closedHandler?.Invoke();
                 }
-                finally
+                catch
                 {
-                    lock (Sync)
-                    {
-                        if (ReferenceEquals(_viewerForm, form))
-                        {
-                            _viewerForm = null;
-                        }
-
-                        shouldRequestAppExit = form is not null && !_shutdownRequested;
-                    }
                 }
-
-                if (shouldRequestAppExit)
-                {
-                    try
-                    {
-                        _viewerClosedHandler?.Invoke();
-                    }
-                    catch
-                    {
-                    }
-                }
-            })
-            {
-                IsBackground = true,
-                Name = "VlcShimLogViewer"
             };
-            _viewerThread.SetApartmentState(ApartmentState.STA);
-            _viewerThread.Start();
+
+            form.Show();
         }
     }
 
@@ -153,6 +155,12 @@ internal static class VerboseLogger
         string line = $"{DateTimeOffset.Now:O} [{level}] [{source}] [T{Environment.CurrentManagedThreadId}] {message}";
         _writer.WriteLine(line);
         Debug.WriteLine(line);
+        RecentLines.Enqueue(line);
+        while (RecentLines.Count > MaxRecentLines)
+        {
+            RecentLines.Dequeue();
+        }
+
         switch (_viewerForm)
         {
             case LogViewerForm viewer:
@@ -166,7 +174,6 @@ internal static class VerboseLogger
 
     public static void Shutdown()
     {
-        Thread? viewerThread;
         Form? viewerForm;
 
         lock (Sync)
@@ -175,9 +182,7 @@ internal static class VerboseLogger
             WriteInternal("logger", "INFO", "Logging shutdown");
             _writer?.Dispose();
             _writer = null;
-            viewerThread = _viewerThread;
             viewerForm = _viewerForm;
-            _viewerThread = null;
             _viewerClosedHandler = null;
         }
 
@@ -190,22 +195,17 @@ internal static class VerboseLogger
                 fallbackViewer.RequestClose();
                 break;
         }
-
-        if (viewerThread is not null && viewerThread.IsAlive)
-        {
-            viewerThread.Join(1500);
-        }
     }
 
-    private static Form? CreateViewerForm(string logPath, LogViewerTheme theme, ShimConfig config)
+    private static Form? CreateViewerForm(string logPath, LogViewerTheme theme, ShimConfig config, IReadOnlyCollection<string> initialLines)
     {
         try
         {
-            return new LogViewerForm(logPath, theme, config);
+            return new LogViewerForm(logPath, theme, config, initialLines);
         }
         catch (Exception ex)
         {
-            Error("🪟 Vortice log viewer unavailable. Falling back to the basic log window.", ex);
+            Error("🪟 Avalonia log viewer unavailable. Falling back to the basic log window.", ex);
 
             try
             {

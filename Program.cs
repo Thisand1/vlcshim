@@ -7,6 +7,8 @@ using System.Drawing;
 
 internal static partial class Program
 {
+    private static bool _cliPasswordWarningLogged;
+
     private sealed class IconHolder
     {
         public IconHolder(Icon icon)
@@ -56,7 +58,7 @@ internal static partial class Program
         {
             try
             {
-                rainmeterBridgeController.Replace(CreateRainmeterBridge(cts, ctx));
+                rainmeterBridgeController.Replace(CreateRainmeterBridge(config));
             }
             catch (Exception ex)
             {
@@ -107,7 +109,7 @@ internal static partial class Program
             catch (Exception ex)
             {
                 VerboseLogger.Error("💥 Unhandled startup error.", ex);
-                MessageBox.Show(ex.ToString(), "VlcShim crashed during init");
+                MessageBox.Show(ex.ToString(), "vlcshim crashed during init");
                 ctx.ExitThread();
                 // the crash is a lie
                 // portal reference btw
@@ -176,7 +178,7 @@ internal static partial class Program
 
     private static string BuildTrayText(ShimConfig config)
     {
-        string text = $"VlcShim ({PlayerIdentityProfiles.GetDisplayName(config)})";
+        string text = $"vlcshim ({PlayerIdentityProfiles.GetDisplayName(config)})";
         return text.Length <= 63 ? text : text[..63];
     }
 
@@ -300,11 +302,25 @@ internal static partial class Program
         CancellationToken ct)
     {
         VlcConnectionSettings? lastLoggedSettings = null;
+        bool missingPasswordLogged = false;
 
         while (true)
         {
             ct.ThrowIfCancellationRequested();
             VlcConnectionSettings settings = ResolveConnectionSettings(args, getConfig);
+            if (string.IsNullOrWhiteSpace(settings.Password))
+            {
+                if (!missingPasswordLogged)
+                {
+                    VerboseLogger.Info("🔒 VLC HTTP password is not configured. Set it in Settings, VLC_HTTP_PASSWORD, or --password.");
+                    missingPasswordLogged = true;
+                }
+
+                await Task.Delay(1000, ct);
+                continue;
+            }
+
+            missingPasswordLogged = false;
             if (!HasSameConnectionSettings(lastLoggedSettings, settings))
             {
                 VerboseLogger.Info($"🔎 Waiting for VLC HTTP on ports: {string.Join(", ", GetPortsToProbe(settings))}");
@@ -407,7 +423,7 @@ internal static partial class Program
 
         try
         {
-            rainmeterBridgeController.Replace(CreateRainmeterBridge(cts, ctx));
+            rainmeterBridgeController.Replace(CreateRainmeterBridge(updatedConfig));
             VerboseLogger.Info("🌧️ Rainmeter AIMP bridge enabled live.");
         }
         catch (Exception ex)
@@ -415,19 +431,15 @@ internal static partial class Program
             VerboseLogger.Error("🌧️ Failed to enable the Rainmeter AIMP bridge live.", ex);
             MessageBox.Show(
                 $"The Rainmeter AIMP bridge could not be enabled live.\n\n{ex.Message}",
-                "VLC Shim Settings",
+                "vlcshim settings",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
         }
     }
 
-    private static RainmeterAimpBridge CreateRainmeterBridge(CancellationTokenSource cts, ApplicationContext ctx)
+    private static RainmeterAimpBridge CreateRainmeterBridge(ShimConfig? config = null)
     {
-        return new RainmeterAimpBridge(() =>
-        {
-            try { cts.Cancel(); } catch { }
-            ctx.ExitThread();
-        });
+        return new RainmeterAimpBridge(allowControlCommands: config?.AllowCompatibilityControlCommands ?? false);
     }
 
     private static bool DidIdentitySettingsChange(ShimConfig previousConfig, ShimConfig updatedConfig)
@@ -446,11 +458,18 @@ internal static partial class Program
     private static VlcConnectionSettings ResolveConnectionSettings(string[] args, Func<ShimConfig> getConfig)
     {
         ShimConfig config = getConfig();
+        string? cliPassword = ParsePassword(args);
         string password =
-            ParsePassword(args) ??
             Environment.GetEnvironmentVariable("VLC_HTTP_PASSWORD") ??
-            (string.IsNullOrWhiteSpace(config.VlcHttpPassword) ? null : config.VlcHttpPassword) ??
-            "ineedair";
+            (string.IsNullOrWhiteSpace(config.VlcHttpPassword) ? null : config.VlcHttpPassword) ?? // rip "ineedair" string, we will not forget you
+            cliPassword ??
+            string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(cliPassword) && !_cliPasswordWarningLogged)
+        {
+            VerboseLogger.Info("🔐 Using --password is discouraged because command-line arguments can be inspected by local processes. Prefer config or VLC_HTTP_PASSWORD.");
+            _cliPasswordWarningLogged = true;
+        }
 
         int[] extraPorts = ParsePorts(args);
         if (extraPorts.Length == 0)

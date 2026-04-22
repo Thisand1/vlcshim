@@ -10,7 +10,7 @@ Please read these first:
 
 - [README.md](./README.md)
 - [README_BEFORE_CODE_OF_CONDUCT.md](./README_BEFORE_CODE_OF_CONDUCT.md)
-- [CODEOFCONDUCT.md](./CODEOFCONDUCT.md)
+- [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)
 - [SECURITY.md](./SECURITY.md)
 
 If you are reporting a security problem, do not use a normal public issue unless the problem is already fixed or disclosure was approved.
