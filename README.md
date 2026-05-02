@@ -43,6 +43,9 @@ Please read [README_BEFORE_CODE_OF_CONDUCT.md](./README_BEFORE_CODE_OF_CONDUCT.m
 - "What version has this been tested on?"
   Windows build `26100` and `26200.8079`.
 
+- "Do I need .NET installed?"
+  Yes, for the current framework-dependent build you need the `.NET 8 Desktop Runtime` installed. If a future release is published as self-contained, that requirement may not apply to that specific package.
+
 - "What does this do?"
   It mirrors VLC playback state into Windows SMTC and forwards SMTC button presses back to VLC.
 

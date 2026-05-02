@@ -71,6 +71,7 @@ internal sealed class LogViewerForm : Form
             Dock = DockStyle.Fill,
             Content = _logView
         };
+        _textBox.HideSelection = false;
 
         _titleBar.Controls.Add(_closeButton);
         _titleBar.Controls.Add(_maximizeButton);
