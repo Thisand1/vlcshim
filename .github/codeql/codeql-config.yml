@@ -1,0 +1,9 @@
+name: "vlcshim CodeQL Config"
+
+paths-ignore:
+  - bin/**
+  - obj/**
+  - installer/output/**
+  - installer/publish/**
+  - pkgs/**
+  - tmp-rainmeter-src/**
