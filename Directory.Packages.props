@@ -8,5 +8,6 @@
     <PackageVersion Include="Avalonia.Win32.Interoperability" Version="11.3.12" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.2.1" />
     <PackageVersion Include="Microsoft.Windows.CsWinRT" Version="2.2.0" />
+    <PackageVersion Include="Tmds.DBus.Protocol" Version="0.21.3" />
   </ItemGroup>
 </Project>

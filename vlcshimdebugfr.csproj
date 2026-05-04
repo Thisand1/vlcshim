@@ -25,6 +25,7 @@
     <PackageReference Include="Avalonia.Win32.Interoperability" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Microsoft.Windows.CsWinRT" />
+    <PackageReference Include="Tmds.DBus.Protocol" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
