@@ -8,13 +8,32 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <EnableCsWinRT>true</EnableCsWinRT>
-    <AssemblyTitle>VLC media player</AssemblyTitle>
-    <Product>VLC media player</Product>
-    <Description>VLC media player bridge</Description>
+    <ApplicationIcon>assets\vlc.ico</ApplicationIcon>
+    <AssemblyTitle>VLC</AssemblyTitle>
+    <Product>VLC</Product>
+    <Description>VLC bridge</Description>
     <Company>VideoLAN</Company>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <DefaultItemExcludes>$(DefaultItemExcludes);src\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Windows.CsWinRT" Version="2.2.0" />
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Win32.Interoperability" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Windows.CsWinRT" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="assets\vlc.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="bin\**\*.cs;obj\**\*.cs;artifacts\**\*.cs;src\**\*.cs;pkgs\**\*.cs;tmp-rainmeter-src\**\*.cs;installer\publish\**\*.cs" />
   </ItemGroup>
 </Project>

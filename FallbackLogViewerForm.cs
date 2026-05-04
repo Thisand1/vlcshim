@@ -2,15 +2,11 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
-using Avalonia.Win32.Interoperability;
-using VlcShimDebugFr.AvaloniaUi;
-using VlcShimDebugFr.AvaloniaUi.Logs;
 
 namespace VlcShimDebugFr;
 
-internal sealed class LogViewerForm : Form
+internal sealed class FallbackLogViewerForm : Form
 {
-    internal const int MaxDisplayedChars = 200_000;
     private const int InitialLineCount = 200;
     private const int ResizeBorderThickness = 8;
     private const int WM_NCHITTEST = 0x84;
@@ -31,66 +27,56 @@ internal sealed class LogViewerForm : Form
     private const int DwmwaTextColor = 36;
 
     private readonly string _logPath;
-    private readonly WinFormsAvaloniaControlHost _host;
-    private readonly LogViewerView _logView;
-    private readonly LogViewerViewModel _viewModel;
+    private readonly TextBox _textBox;
     private readonly Panel _titleBar;
     private readonly Label _titleLabel;
     private readonly Button _maximizeButton;
     private readonly Button _closeButton;
     private LogViewerTheme _theme;
 
-    public LogViewerForm(string logPath, LogViewerTheme theme, ShimConfig config, IReadOnlyCollection<string> initialLines)
+    public FallbackLogViewerForm(string logPath, LogViewerTheme theme)
     {
         _logPath = logPath;
         _theme = theme;
-        AvaloniaBootstrap.EnsureInitialized();
 
-        Text = "vlcshim logvwr";
+        Text = "vlcshim logs (fallback)";
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.CenterScreen;
         MaximizeBox = true;
         MinimizeBox = false;
         MinimumSize = new Size(760, 360);
         Size = new Size(980, 560);
-        BackColor = Color.FromArgb(_theme.SurfaceArgb);
         Padding = new Padding(1);
+        Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
 
-        _viewModel = new LogViewerViewModel(_theme, config);
-        _logView = new LogViewerView
+        _textBox = new TextBox
         {
-            DataContext = _viewModel
+            Dock = DockStyle.Fill,
+            Multiline = true,
+            ReadOnly = true,
+            ScrollBars = ScrollBars.Both,
+            WordWrap = false,
+            BorderStyle = BorderStyle.None,
+            Font = new Font("Consolas", 10.0f, FontStyle.Regular, GraphicsUnit.Point)
         };
+
         _titleBar = BuildTitleBar();
         _maximizeButton = CreateCaptionButton("□", ToggleMaximizeRestore, Color.FromArgb(_theme.SurfaceArgb), ToOpaqueColor(_theme.StripeArgb));
         _closeButton = CreateCaptionButton("✕", () => Close(), Color.FromArgb(_theme.SurfaceArgb), Color.FromArgb(176, 52, 52));
         _titleLabel = BuildTitleLabel();
-
-        _host = new WinFormsAvaloniaControlHost
-        {
-            Dock = DockStyle.Fill,
-            Content = _logView
-        };
 
         _titleBar.Controls.Add(_closeButton);
         _titleBar.Controls.Add(_maximizeButton);
         _titleBar.Controls.Add(_titleLabel);
         _titleBar.Controls.Add(BuildIconBox());
 
-        Controls.Add(_host);
+        Controls.Add(_textBox);
         Controls.Add(_titleBar);
 
         Resize += (_, __) => UpdateCaptionButtons();
         UpdateCaptionButtons();
-        if (initialLines.Count > 0)
-        {
-            _viewModel.LoadLines(initialLines);
-            Shown += (_, _) => _logView.ScrollToEnd();
-        }
-        else
-        {
-            Shown += (_, _) => LoadExistingLines();
-        }
+        ApplyConfig(theme);
+        Shown += (_, _) => LoadExistingLines();
     }
 
     protected override CreateParams CreateParams
@@ -126,12 +112,11 @@ internal sealed class LogViewerForm : Form
             return;
         }
 
-        bool pinToBottom = _logView.IsNearBottom();
-        _viewModel.AppendLine(line);
-        if (pinToBottom)
-        {
-            _logView.ScrollToEnd();
-        }
+        string text = _textBox.TextLength == 0 ? line : $"{Environment.NewLine}{line}";
+        _textBox.AppendText(text);
+        TrimTextIfNeeded();
+        _textBox.SelectionStart = _textBox.TextLength;
+        _textBox.ScrollToCaret();
     }
 
     public void LoadSnapshot(IReadOnlyCollection<string> lines)
@@ -159,11 +144,12 @@ internal sealed class LogViewerForm : Form
             return;
         }
 
-        _viewModel.LoadLines(lines);
-        _logView.ScrollToEnd();
+        _textBox.Text = string.Join(Environment.NewLine, lines);
+        _textBox.SelectionStart = _textBox.TextLength;
+        _textBox.ScrollToCaret();
     }
 
-    public void ApplyConfig(LogViewerTheme theme, ShimConfig config)
+    public void ApplyConfig(LogViewerTheme theme)
     {
         if (IsDisposed)
         {
@@ -174,7 +160,7 @@ internal sealed class LogViewerForm : Form
         {
             try
             {
-                BeginInvoke(new Action<LogViewerTheme, ShimConfig>(ApplyConfig), theme, config);
+                BeginInvoke(new Action<LogViewerTheme>(ApplyConfig), theme);
             }
             catch
             {
@@ -185,7 +171,8 @@ internal sealed class LogViewerForm : Form
 
         _theme = theme;
         BackColor = Color.FromArgb(_theme.SurfaceArgb);
-        _viewModel.ApplyConfig(theme, config);
+        _textBox.BackColor = Color.FromArgb(_theme.BackgroundArgb);
+        _textBox.ForeColor = Color.FromArgb(_theme.ForegroundArgb);
         ApplyTitleBarTheme();
         ApplyWindowChromeTheme();
         Invalidate(true);
@@ -212,38 +199,6 @@ internal sealed class LogViewerForm : Form
         }
 
         Close();
-    }
-
-    private void LoadExistingLines()
-    {
-        try
-        {
-            if (!File.Exists(_logPath))
-            {
-                return;
-            }
-
-            var queue = new Queue<string>();
-            foreach (string line in File.ReadLines(_logPath, Encoding.UTF8))
-            {
-                queue.Enqueue(line);
-                if (queue.Count > InitialLineCount)
-                {
-                    queue.Dequeue();
-                }
-            }
-
-            if (queue.Count == 0)
-            {
-                return;
-            }
-
-            _viewModel.LoadLines(queue);
-            _logView.ScrollToEnd();
-        }
-        catch
-        {
-        }
     }
 
     protected override void OnHandleCreated(EventArgs e)
@@ -374,6 +329,52 @@ internal sealed class LogViewerForm : Form
 
         ReleaseCapture();
         SendMessage(Handle, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+    }
+
+    private void LoadExistingLines()
+    {
+        try
+        {
+            if (!File.Exists(_logPath))
+            {
+                return;
+            }
+
+            var queue = new Queue<string>();
+            foreach (string line in File.ReadLines(_logPath, Encoding.UTF8))
+            {
+                queue.Enqueue(line);
+                if (queue.Count > InitialLineCount)
+                {
+                    queue.Dequeue();
+                }
+            }
+
+            if (queue.Count == 0)
+            {
+                return;
+            }
+
+            _textBox.Text = string.Join(Environment.NewLine, queue);
+            _textBox.SelectionStart = _textBox.TextLength;
+            _textBox.ScrollToCaret();
+        }
+        catch
+        {
+        }
+    }
+
+    private void TrimTextIfNeeded()
+    {
+        if (_textBox.TextLength <= LogViewerForm.MaxDisplayedChars)
+        {
+            return;
+        }
+
+        int excess = _textBox.TextLength - LogViewerForm.MaxDisplayedChars;
+        int trimLength = Math.Min(excess + 4096, _textBox.TextLength);
+        _textBox.Select(0, trimLength);
+        _textBox.SelectedText = string.Empty;
     }
 
     private void ApplyWindowChromeTheme()

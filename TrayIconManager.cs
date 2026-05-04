@@ -40,7 +40,7 @@ namespace VlcShimDebugFr
             _notifyIcon = new NotifyIcon
             {
                 Icon = SystemIcons.Application,
-                Text = "VLC Shim",
+                Text = "vlcshim",
                 Visible = true
             };
 

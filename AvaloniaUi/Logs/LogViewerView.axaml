@@ -1,0 +1,66 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:logs="using:VlcShimDebugFr.AvaloniaUi.Logs"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignWidth="980"
+             d:DesignHeight="560"
+             x:Class="VlcShimDebugFr.AvaloniaUi.Logs.LogViewerView"
+             x:DataType="logs:LogViewerViewModel">
+
+    <Border Background="{Binding SurfaceBrush}"
+            BorderBrush="{Binding AccentBrush}"
+            BorderThickness="1">
+        <Grid Background="{Binding BackgroundBrush}">
+            <Image Source="{Binding BackgroundImage}"
+                   Stretch="UniformToFill"
+                   Opacity="{Binding BackgroundImageOpacity}"
+                   IsVisible="{Binding HasBackgroundImage}" />
+
+            <Border Background="{Binding BackgroundDimBrush}"
+                    IsVisible="{Binding HasBackgroundImage}" />
+
+            <Grid ColumnDefinitions="48,*">
+                <Border Background="{Binding SurfaceBrush}" />
+
+                <ScrollViewer x:Name="EntriesScrollViewer"
+                              Grid.ColumnSpan="2"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Lines}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <VirtualizingStackPanel CacheLength="1" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="logs:LogLineViewModel">
+                                <Border Background="{Binding RowBrush}">
+                                    <Grid ColumnDefinitions="48,*">
+                                        <Border Width="4"
+                                                Height="18"
+                                                Margin="14,5,0,5"
+                                                CornerRadius="99"
+                                                Background="{Binding MarkerBrush}"
+                                                HorizontalAlignment="Left"
+                                                VerticalAlignment="Top" />
+
+                                        <TextBlock Grid.Column="1"
+                                                   Margin="4,4,18,4"
+                                                   Text="{Binding RawText}"
+                                                   Foreground="{Binding Foreground}"
+                                                   FontFamily="Cascadia Mono,Consolas,avares://Avalonia.Fonts.Inter#Inter"
+                                                   FontSize="15"
+                                                   TextWrapping="NoWrap" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>

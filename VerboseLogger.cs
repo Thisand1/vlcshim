@@ -7,10 +7,13 @@ namespace VlcShimDebugFr;
 internal static class VerboseLogger
 {
     private static readonly object Sync = new();
+    private static readonly Queue<string> RecentLines = new();
+    private const int MaxRecentLines = 200;
     private static StreamWriter? _writer;
-    private static Thread? _viewerThread;
-    private static LogViewerForm? _viewerForm;
+    private static Form? _viewerForm;
+    private static Action? _viewerClosedHandler;
     private static bool _initialized;
+    private static bool _shutdownRequested;
 
     public static void Init(string logPath)
     {
@@ -42,25 +45,41 @@ internal static class VerboseLogger
         }
     }
 
-    public static void StartTail(string logPath, LogViewerTheme theme)
+    public static void StartTail(string logPath, LogViewerTheme theme, ShimConfig config, Action onViewerClosed)
     {
         lock (Sync)
         {
-            if (_viewerThread is { IsAlive: true })
+            if (_viewerForm is not null && !_viewerForm.IsDisposed)
             {
                 return;
             }
 
-            _viewerThread = new Thread(() =>
+            _shutdownRequested = false;
+            _viewerClosedHandler = onViewerClosed;
+            string[] snapshot = RecentLines.ToArray();
+            Form? form = CreateViewerForm(logPath, theme, config, snapshot);
+            if (form is null)
             {
-                using var form = new LogViewerForm(logPath, theme);
+                return;
+            }
 
-                lock (Sync)
-                {
-                    _viewerForm = form;
-                }
+            _viewerForm = form;
+            string[] latestSnapshot = RecentLines.ToArray();
 
-                Application.Run(form);
+            switch (form)
+            {
+                case LogViewerForm viewer:
+                    viewer.LoadSnapshot(latestSnapshot);
+                    break;
+                case FallbackLogViewerForm fallbackViewer:
+                    fallbackViewer.LoadSnapshot(latestSnapshot);
+                    break;
+            }
+
+            form.FormClosed += (_, _) =>
+            {
+                bool shouldRequestAppExit;
+                Action? closedHandler;
 
                 lock (Sync)
                 {
@@ -68,14 +87,26 @@ internal static class VerboseLogger
                     {
                         _viewerForm = null;
                     }
+
+                    shouldRequestAppExit = !_shutdownRequested;
+                    closedHandler = _viewerClosedHandler;
                 }
-            })
-            {
-                IsBackground = true,
-                Name = "VlcShimLogViewer"
+
+                if (!shouldRequestAppExit)
+                {
+                    return;
+                }
+
+                try
+                {
+                    closedHandler?.Invoke();
+                }
+                catch
+                {
+                }
             };
-            _viewerThread.SetApartmentState(ApartmentState.STA);
-            _viewerThread.Start();
+
+            form.Show();
         }
     }
 
@@ -98,6 +129,22 @@ internal static class VerboseLogger
         }
     }
 
+    public static void ApplyViewerConfig(LogViewerTheme theme, ShimConfig config)
+    {
+        lock (Sync)
+        {
+            switch (_viewerForm)
+            {
+                case LogViewerForm viewer:
+                    viewer.ApplyConfig(theme, config);
+                    break;
+                case FallbackLogViewerForm fallbackViewer:
+                    fallbackViewer.ApplyConfig(theme);
+                    break;
+            }
+        }
+    }
+
     private static void WriteInternal(string source, string level, string message)
     {
         if (_writer is null)
@@ -108,29 +155,67 @@ internal static class VerboseLogger
         string line = $"{DateTimeOffset.Now:O} [{level}] [{source}] [T{Environment.CurrentManagedThreadId}] {message}";
         _writer.WriteLine(line);
         Debug.WriteLine(line);
-        _viewerForm?.AppendLine(line);
+        RecentLines.Enqueue(line);
+        while (RecentLines.Count > MaxRecentLines)
+        {
+            RecentLines.Dequeue();
+        }
+
+        switch (_viewerForm)
+        {
+            case LogViewerForm viewer:
+                viewer.AppendLine(line);
+                break;
+            case FallbackLogViewerForm fallbackViewer:
+                fallbackViewer.AppendLine(line);
+                break;
+        }
     }
 
     public static void Shutdown()
     {
-        Thread? viewerThread;
-        LogViewerForm? viewerForm;
+        Form? viewerForm;
 
         lock (Sync)
         {
+            _shutdownRequested = true;
             WriteInternal("logger", "INFO", "Logging shutdown");
             _writer?.Dispose();
             _writer = null;
-            viewerThread = _viewerThread;
             viewerForm = _viewerForm;
-            _viewerThread = null;
+            _viewerClosedHandler = null;
         }
 
-        viewerForm?.RequestClose();
-
-        if (viewerThread is not null && viewerThread.IsAlive)
+        switch (viewerForm)
         {
-            viewerThread.Join(1500);
+            case LogViewerForm viewer:
+                viewer.RequestClose();
+                break;
+            case FallbackLogViewerForm fallbackViewer:
+                fallbackViewer.RequestClose();
+                break;
+        }
+    }
+
+    private static Form? CreateViewerForm(string logPath, LogViewerTheme theme, ShimConfig config, IReadOnlyCollection<string> initialLines)
+    {
+        try
+        {
+            return new LogViewerForm(logPath, theme, config, initialLines);
+        }
+        catch (Exception ex)
+        {
+            Error("🪟 Avalonia log viewer unavailable. Falling back to the basic log window.", ex);
+
+            try
+            {
+                return new FallbackLogViewerForm(logPath, theme);
+            }
+            catch (Exception fallbackEx)
+            {
+                Error("🪟 Failed to open the fallback log window. Continuing without a viewer.", fallbackEx);
+                return null;
+            }
         }
     }
 }

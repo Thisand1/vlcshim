@@ -46,7 +46,7 @@ internal sealed class RainmeterAimpBridge : IDisposable
     private readonly object _sync = new();
     private readonly BridgeWindow _aimpWindow;
     private readonly BridgeWindow _winampWindow;
-    private readonly Action _requestExit;
+    private readonly bool _allowControlCommands;
     private readonly byte[] _mapBuffer = new byte[FileMapSize];
 
     private IntPtr _fileMapHandle;
@@ -57,9 +57,9 @@ internal sealed class RainmeterAimpBridge : IDisposable
     private ulong _playbackSessionVersion = 1;
     private bool _disposed;
 
-    public RainmeterAimpBridge(Action requestExit)
+    public RainmeterAimpBridge(bool allowControlCommands)
     {
-        _requestExit = requestExit;
+        _allowControlCommands = allowControlCommands;
 
         if (FindWindow(AimpRemoteInfoName, AimpRemoteInfoName) != IntPtr.Zero)
         {
@@ -82,7 +82,9 @@ internal sealed class RainmeterAimpBridge : IDisposable
         _winampWindow = new BridgeWindow(WinampWindowClass, WinampWindowClass, HandleWinampWindowMessage);
 
         WriteMapLocked();
-        VerboseLogger.Info("🌧️ Rainmeter AIMP bridge ready.");
+        VerboseLogger.Info(_allowControlCommands
+            ? "🌧️ Rainmeter AIMP bridge ready (control commands enabled)."
+            : "🌧️ Rainmeter AIMP bridge ready (read-only hardening mode).");
     }
 
     public void SetTransport(VlcHttpClient? vlc)
@@ -151,7 +153,6 @@ internal sealed class RainmeterAimpBridge : IDisposable
                 message.Result = HandleAimpCommand(message.WParam, message.LParam);
                 return message.Result;
             case WM_CLOSE:
-                _requestExit();
                 message.Result = IntPtr.Zero;
                 return message.Result;
             default:
@@ -195,9 +196,19 @@ internal sealed class RainmeterAimpBridge : IDisposable
             case WM_AIMP_STATUS_GET:
                 return new IntPtr(GetStatusValue(lParam.ToInt32()));
             case WM_AIMP_STATUS_SET:
+                if (!_allowControlCommands)
+                {
+                    return IntPtr.Zero;
+                }
+
                 ApplyStatusSet(lParam.ToInt32());
                 return IntPtr.Zero;
             case WM_AIMP_CALLFUNC:
+                if (!_allowControlCommands)
+                {
+                    return IntPtr.Zero;
+                }
+
                 ApplyCallFunction(lParam.ToInt32());
                 return IntPtr.Zero;
             default:

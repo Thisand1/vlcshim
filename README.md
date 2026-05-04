@@ -2,14 +2,7 @@
 
 This project mirrors VLC playback state into Windows SMTC using VLC's Lua HTTP interface.
 
-Please read [README_BEFORE_CODE_OF_CONDUCT.md](./README_BEFORE_CODE_OF_CONDUCT.md) before opening issues or contributing.
-Please also read [CONTRIBUTING.md](./CONTRIBUTING.md) if you want to send issues or pull requests.
-
-## Requirements
-
-- Windows 11 or a recent Windows 10/11 build with SMTC support
-- VLC with the Lua HTTP interface enabled
-- `.NET 8 Desktop Runtime` installed if you use the framework-dependent build
+Please read [README_BEFORE_CODE_OF_CONDUCT.md](./README_BEFORE_CODE_OF_CONDUCT.md) and [LICENSE](./LICENSE) before opening issues, contributing or using this software.
 
 ## Setup VLC
 
@@ -25,12 +18,18 @@ Please also read [CONTRIBUTING.md](./CONTRIBUTING.md) if you want to send issues
 ## Run the shim
 
 1. Build and launch with `dnet-cbr.bat`.
-2. If you are running a packaged framework-dependent release, install the `.NET 8 Desktop Runtime` first.
-3. If you changed the VLC Lua HTTP password from the default `ineedair`, run the shim with `--password your_password_here`.
-4. If VLC is using a different web port, run with `--port your_port_here` or `--ports 8080,your_port_here`.
-5. You can also set `VLC_HTTP_PASSWORD` instead of passing `--password`.
+2. If you changed the VLC Lua HTTP password from the default `ineedair`, run the shim with `--password your_password_here`.
+3. If VLC is using a different web port, run with `--port your_port_here` or `--ports 8080,your_port_here`.
+4. You can also set `VLC_HTTP_PASSWORD` instead of passing `--password`.
+5. You can also use the tray icon menu `Config...` window to save the VLC HTTP password and port list.
 6. The shim will keep retrying until VLC's HTTP interface responds.
 7. Use the tray icon menu to open `Config...` if you want to change the shown player identity or toggle the startup warning toast.
+
+## Build the installer
+
+1. Install NSIS.
+2. Run `installer\build-installer.bat v1.6.2-prerelease2`.
+3. The generated installer will be written to `installer\output`.
 
 ## Troubleshooting
 

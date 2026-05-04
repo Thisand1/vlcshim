@@ -1,19 +1,23 @@
 namespace VlcShimDebugFr;
 
-internal sealed record PlayerIdentityProfile(
+public sealed record PlayerIdentityProfile(
     string Id,
     string Label,
     string DisplayName,
     string FallbackAppUserModelId,
+    bool UseExplicitAppUserModelId = true,
+    bool PreferInstalledAppMatch = true,
     bool IsCustom = false);
 
 internal static class PlayerIdentityProfiles
 {
     public static readonly PlayerIdentityProfile Default = new(
         "vlc",
-        "VLC media player",
-        "VLC media player",
-        "VideoLAN.VLC");
+        "VLC",
+        "VLC",
+        "VlcShim.VLC",
+        UseExplicitAppUserModelId: true,
+        PreferInstalledAppMatch: false);
 
     private static readonly IReadOnlyList<PlayerIdentityProfile> Profiles = new[]
     {
@@ -21,7 +25,7 @@ internal static class PlayerIdentityProfiles
         new PlayerIdentityProfile("spotify", "Spotify", "Spotify", "Spotify"),
         new PlayerIdentityProfile("spicetify", "Spicetify", "Spicetify", "Spicetify"),
         new PlayerIdentityProfile("aimp", "AIMP", "AIMP", "AIMP"),
-        new PlayerIdentityProfile("custom", "Custom", string.Empty, "VlcShim.Custom", true)
+        new PlayerIdentityProfile("custom", "Custom", string.Empty, "VlcShim.Custom", IsCustom: true)
     };
 
     public static IReadOnlyList<PlayerIdentityProfile> All => Profiles;
