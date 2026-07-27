@@ -64,15 +64,3 @@ Please read [README_BEFORE_CODE_OF_CONDUCT.md](./README_BEFORE_CODE_OF_CONDUCT.m
 - "What is SMTC?"
   See the Microsoft Learn docs:
   <https://learn.microsoft.com/en-us/uwp/api/windows.media.systemmediatransportcontrols?view=winrt-26100>
-
-## Project expectations
-
-This project assumes that you:
-
-1. Know how to use Visual Studio Code or Visual Studio.
-2. Understand basic object-oriented programming concepts.
-3. Can follow written setup instructions.
-4. Have VLC installed and know how to open its settings.
-5. Are comfortable editing command-line arguments or environment variables if needed.
-
-If you do not meet those assumptions, setup will be harder, but the project is still open to improvements and documentation fixes.
